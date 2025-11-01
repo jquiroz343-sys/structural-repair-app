@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Audit Trail</h2>
+<table>
+  <tr><th>Fecha</th><th>Acción</th><th>Descripción</th></tr>
+  {% for log in logs %}
+  <tr>
+    <td>{{ log.timestamp[:19].replace('T', ' ') }}</td>
+    <td>{{ log.action }}</td>
+    <td>{{ log.description }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="3">No hay logs</td></tr>
+  {% endfor %}
+</table>
+<a href="/dashboard">Volver</a>
+{% endblock %}
