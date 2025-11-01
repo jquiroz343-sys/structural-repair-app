@@ -1,221 +1,112 @@
-# --- app.py (COMPLETO - COPIA Y PEGA TODO) ---
-from flask import Flask, render_template, jsonify, request, redirect, url_for, send_file, session
-import data_manager
-import audit_log
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash
 import os
-import re
-import csv
-from werkzeug.utils import secure_filename
-from datetime import datetime
-import io
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
+import tempfile
+import secrets
+from data_manager import DataManager
+from pdf_generator import generate_pdf
+from audit_log import log_action
 
-# --- CONFIGURACIÓN ---
 app = Flask(__name__)
-app.secret_key = 'super_secure_key_2025_change_in_production'
-UPLOAD_FOLDER = 'data/uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
-ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'dwg', 'dxf', 'doc', 'docx', 'xls', 'xlsx'}
+app.secret_key = secrets.token_hex(16)
 
-# --- UTILITARIOS ---
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# === CONFIGURACIÓN PARA RENDER: Puerto dinámico ===
+port = int(os.environ.get('PORT', 5000))  # Render usa PORT, local usa 5000
 
-def get_user_context():
-    return {
-        'role': request.headers.get('X-User-Role', session.get('user_role', 'UNKNOWN')),
-        'name': request.headers.get('X-User-Name', session.get('user_name', 'N/A')),
-        'ip': request.remote_addr
-    }
+# Carpeta temporal para datos en Render (persiste durante la sesión)
+BASE_DIR = tempfile.gettempdir()
+os.makedirs(BASE_DIR, exist_ok=True)
+db_path = os.path.join(BASE_DIR, 'repairs.db')
+dm = DataManager(db_path)
 
-# --- VALIDACIÓN ---
-def validate_repair_data(record_data):
-    if not record_data.get('Repair_ID'):
-        return False, "Repair ID is mandatory."
-    return True, "Valid"
+# Login simple
+PASSWORD = "redelivery2025"
+ROLES = {'operator': 'Operator', 'auditor': 'Auditor', 'lessor': 'Lessor'}
 
-# --- RUTAS API ---
-@app.route('/api/projects/create', methods=['POST'])
-def create_project_api():
-    data = request.json
-    msn = data.get('msn')
-    if not msn:
-        return jsonify({"success": False, "message": "MSN is required"}), 400
-    try:
-        success, message = data_manager.create_project(msn, data)
-        if success:
-            audit_log.log_event(msn, None, "CREATE_PROJECT", get_user_context(), data)
-            return jsonify({"success": True, "message": f"Project {msn} created!"})
-        return jsonify({"success": False, "message": message}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+@app.before_request
+def require_login():
+    if request.endpoint not in ['login', 'static'] and 'role' not in session:
+        return redirect(url_for('login'))
 
-# --- LISTAR TODOS LOS REPAIRS ---
-@app.route('/api/repairs/<msn>', methods=['GET'])
-def get_repairs_api(msn):
-    repairs = data_manager.get_all_repairs(msn)
-    return jsonify(repairs)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        if request.form['password'] == PASSWORD:
+            role = request.form['role']
+            if role in ROLES:
+                session['role'] = role
+                log_action("LOGIN", f"{ROLES[role]} logged in")
+                return redirect(url_for('dashboard'))
+        flash("Contraseña o rol incorrecto")
+    return render_template('login.html')
 
-# --- OBTENER UN REPAIR ESPECÍFICO ---
-@app.route('/api/repairs/<msn>/<repair_id>', methods=['GET'])
-def get_repair_api(msn, repair_id):
-    repair = data_manager.get_repair_record_by_id(msn, repair_id)
-    if repair:
-        return jsonify(repair)
-    return jsonify({"error": "Repair not found"}), 404
+@app.route('/logout')
+def logout():
+    log_action("LOGOUT", f"{ROLES.get(session['role'], 'Unknown')} logged out")
+    session.pop('role', None)
+    return redirect(url_for('login'))
 
-# --- AÑADIR NUEVO REPAIR ---
-@app.route('/api/repairs/add/<msn>', methods=['POST'])
-def add_repair_api(msn):
-    data = request.json
-    success, message = validate_repair_data(data)
-    if not success:
-        return jsonify({"success": False, "message": message}), 400
-    success, message = data_manager.add_repair_record(msn, data)
-    if success:
-        audit_log.log_event(msn, data['Repair_ID'], "ADD_REPAIR", get_user_context(), data)
-    return jsonify({"success": success, "message": message})
-
-# --- ACTUALIZAR REPAIR ---
-@app.route('/api/repairs/update/<msn>/<repair_id>', methods=['PUT'])
-def update_repair_api(msn, repair_id):
-    data = request.json
-    success, message = validate_repair_data({**data_manager.get_repair_record_by_id(msn, repair_id), **data})
-    if not success:
-        return jsonify({"success": False, "message": message}), 400
-    success, message = data_manager.update_repair_record(msn, repair_id, data)
-    if success:
-        audit_log.log_event(msn, repair_id, "UPDATE_REPAIR", get_user_context(), data)
-    return jsonify({"success": success, "message": message})
-
-# --- RESUMEN OIL ---
-@app.route('/api/report/oil_summary/<msn>', methods=['GET'])
-def oil_summary_api(msn):
-    records = data_manager.get_all_repairs(msn)
-    total = len(records)
-    open_oil = len([r for r in records if r.get('Audit_OIL_Status') == 'Open'])
-    closed_oil = len([r for r in records if r.get('Audit_OIL_Status') == 'Closed'])
-    progress = round((closed_oil / total * 100), 1) if total else 0
-    return jsonify({
-        "total_records": total,
-        "oil_status": {"open": open_oil, "closed": closed_oil, "progress_percent": progress}
-    })
-
-# --- SUBIR DOCUMENTO ---
-@app.route('/api/documents/upload/<msn>/<repair_id>/<doc_field>', methods=['POST'])
-def upload_document(msn, repair_id, doc_field):
-    if 'file' not in request.files:
-        return jsonify({"success": False, "message": "No file"}), 400
-    file = request.files['file']
-    if file.filename == '' or not allowed_file(file.filename):
-        return jsonify({"success": False, "message": "Invalid file"}), 400
-    filename = secure_filename(file.filename)
-    doc_dir = os.path.join(app.config['UPLOAD_FOLDER'], msn, repair_id)
-    os.makedirs(doc_dir, exist_ok=True)
-    filepath = os.path.join(doc_dir, filename)
-    file.save(filepath)
-    update_data = {doc_field: f"uploads/{msn}/{repair_id}/{filename}"}
-    data_manager.update_repair_record(msn, repair_id, update_data)
-    return jsonify({"success": True, "stored_filename": filename})
-
-# --- AUDIT TRAIL ---
-@app.route('/api/audit_trail/<msn>/<repair_id>', methods=['GET'])
-def get_audit_trail_api(msn, repair_id):
-    return jsonify(audit_log.get_audit_trail(msn, repair_id))
-
-# --- EXPORT PDF OIL ---
-@app.route('/export/oil_pdf/<msn>')
-def export_oil_pdf(msn):
-    records = data_manager.get_all_repairs(msn)
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    elements = []
-    styles = getSampleStyleSheet()
-
-    elements.append(Paragraph(f"<b>OIL Report - MSN {msn}</b>", styles['Title']))
-    elements.append(Spacer(1, 12))
-    details = data_manager.get_project_details(msn)
-    elements.append(Paragraph(f"<b>Reg:</b> {details.get('Aircraft_Reg', 'N/A')}", styles['Normal']))
-    elements.append(Paragraph(f"<b>Date:</b> {datetime.now().strftime('%Y-%m-%d')}", styles['Normal']))
-    elements.append(Spacer(1, 20))
-
-    data = [['ID', 'ATA', 'Loc', 'OIL', 'Phys', 'Note']]
-    for r in records:
-        data.append([
-            r.get('Repair_ID', 'N/A'),
-            r.get('ATA_Chapter', 'N/A'),
-            r.get('Location_Desc', 'N/A')[:15],
-            r.get('Audit_OIL_Status', 'N/A'),
-            r.get('Audit_Physical_Status', 'N/A'),
-            (r.get('Audit_Physical_Note', '') or '')[:30]
-        ])
-
-    table = Table(data)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#004c99')),
-        ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
-        ('ALIGN',(0,0),(-1,-1),'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BACKGROUND',(0,1),(-1,-1),colors.beige),
-        ('GRID',(0,0),(-1,-1),0.5,colors.black)
-    ]))
-    elements.append(table)
-    elements.append(Spacer(1, 40))
-    elements.append(Paragraph("___________________________", styles['Normal']))
-    elements.append(Paragraph("Auditor Signature", styles['Normal']))
-
-    doc.build(elements)
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, 
-                     download_name=f"OIL_{msn}_{datetime.now().strftime('%Y%m%d')}.pdf", 
-                     mimetype='application/pdf')
-
-# --- RUTAS WEB ---
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return redirect(url_for('dashboard'))
 
-@app.route('/project/select')
-def project_select_page():
-    projects = data_manager.get_all_projects()
-    return render_template('project_setup_select.html', projects=projects)
+@app.route('/dashboard')
+def dashboard():
+    repairs = dm.get_all_repairs()
+    return render_template('dashboard.html', repairs=repairs, role=session['role'])
 
-@app.route('/project/create')
-def project_create_page():
-    return render_template('project_setup_create.html')
+@app.route('/add', methods=['GET', 'POST'])
+def add_repair():
+    if session['role'] != 'operator':
+        flash("Solo el Operador puede añadir reparaciones")
+        return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        data = request.form.to_dict()
+        files = request.files.getlist('photos')
+        photo_paths = dm.save_photos(files)
+        data['photos'] = photo_paths
+        repair_id = dm.add_repair(data)
+        log_action("ADD_REPAIR", f"ID {repair_id} por {ROLES[session['role']]}")
+        return redirect(url_for('dashboard'))
+    return render_template('repair_form.html', action="Añadir")
 
-@app.route('/role_select/<msn>')
-def role_select_web(msn):
-    return render_template('role_select.html', msn=msn)
+@app.route('/edit/<int:repair_id>', methods=['GET', 'POST'])
+def edit_repair(repair_id):
+    if session['role'] not in ['operator', 'auditor']:
+        flash("Acceso denegado")
+        return redirect(url_for('dashboard'))
+    repair = dm.get_repair(repair_id)
+    if not repair:
+        flash("Reparación no encontrada")
+        return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        data = request.form.to_dict()
+        files = request.files.getlist('photos')
+        photo_paths = dm.save_photos(files, existing=repair.get('photos', []))
+        data['photos'] = photo_paths
+        dm.update_repair(repair_id, data)
+        log_action("EDIT_REPAIR", f"ID {repair_id} por {ROLES[session['role']]}")
+        return redirect(url_for('dashboard'))
+    return render_template('repair_form.html', action="Editar", repair=repair)
 
-@app.route('/dashboard/<msn>')
-def dashboard(msn):
-    details = data_manager.get_project_details(msn)
-    if not details:
-        return redirect(url_for('index'))
-    return render_template('dashboard.html', msn=msn, details=details)
+@app.route('/audit')
+def audit_trail():
+    if session['role'] not in ['auditor', 'lessor']:
+        flash("Acceso denegado")
+        return redirect(url_for('dashboard'))
+    logs = dm.get_audit_logs()
+    return render_template('audit_trail.html', logs=logs)
 
-@app.route('/view/<msn>')
-def view_repairs_web(msn):
-    return render_template('view_repairs.html', msn=msn)
+@app.route('/pdf/<int:repair_id>')
+def download_pdf(repair_id):
+    if session['role'] == 'lessor':
+        repair = dm.get_repair(repair_id)
+        if repair:
+            pdf_path = generate_pdf(repair, BASE_DIR)
+            log_action("DOWNLOAD_PDF", f"ID {repair_id} por Lessor")
+            return send_file(pdf_path, as_attachment=True)
+    flash("Solo el Lessor puede descargar PDFs")
+    return redirect(url_for('dashboard'))
 
-@app.route('/edit/<msn>/<repair_id>')
-def edit_repair_web(msn, repair_id):
-    return render_template('edit_repair.html', msn=msn, repair_id=repair_id)
-
-@app.route('/audit/<msn>')
-def audit_dashboard_web(msn):
-    return render_template('audit.html', msn=msn)
-# Vercel necesita esto
-if __name__ == "__main__":
-    app.run()
-
-# --- INICIAR SERVIDOR ---
 if __name__ == '__main__':
-    import os
-    port = int(os.environ.get("PORT", 5000))
+    # ¡CLAVE PARA RENDER! Bind a 0.0.0.0 y puerto dinámico
     app.run(host='0.0.0.0', port=port, debug=False)
