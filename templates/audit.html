@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Audit / OIL Management - {{ msn }}</title>
+    <script src="{{ url_for('static', filename='audit_app.js') }}" defer></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #e9ebee; }
+        .container { max-width: 1300px; margin: 20px auto; padding: 25px; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+        h1 { color: #004c99; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 20px; }
+        
+        /* Summary Box */
+        .summary-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        .summary-item { padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); text-align: center; }
+        .summary-item h3 { margin: 0; font-size: 1em; color: white; }
+        .summary-item strong { font-size: 1.8em; color: white; display: block; margin-top: 5px; }
+        
+        .oil-total { background-color: #3498db; }
+        .oil-closed { background-color: #27ae60; }
+        .oil-open { background-color: #e74c3c; }
+        .oil-progress { background-color: #17a2b8; }
+
+        /* Table Styles (High Legibility) */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #eee; padding: 12px 10px; text-align: left; font-size: 12px; }
+        th { background-color: #004c99; color: white; cursor: default; font-weight: 600; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #e6f7ff; cursor: pointer; }
+        
+        /* Modal for Quick Discrepancy Loading */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 30px; border-radius: 10px; width: 50%; min-width: 450px; box-shadow: 0 5px 20px rgba(0,0,0,0.4); }
+        .close-btn { color: #aaa; float: right; font-size: 32px; font-weight: bold; }
+        .close-btn:hover, .close-btn:focus { color: #000; text-decoration: none; cursor: pointer; }
+        
+        .discrepancy-form-group label { display: block; margin-top: 15px; font-weight: 600; color: #555; }
+        .discrepancy-form-group input, .discrepancy-form-group select, .discrepancy-form-group textarea { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; }
+        .discrepancy-form-group textarea { resize: vertical; }
+
+        .file-upload-group { margin-top: 25px; padding: 15px; border: 1px dashed #007bff; background-color: #f8faff; border-radius: 5px; }
+        .file-upload-group input[type="file"] { border: none; }
+        
+        .btn-save { background-color: #28a745; color: white; padding: 12px 25px; border: none; border-radius: 5px; margin-top: 25px; cursor: pointer; font-weight: 600; }
+        .btn-save:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+    <div id="context-data" data-msn="{{ msn }}" style="display: none;"></div>
+
+    <div class="container">
+        <h1>Audit / OIL Management Dashboard: {{ msn }}</h1>
+        <button onclick="window.location.href='/dashboard/{{ msn }}'" style="margin-bottom: 20px; padding: 8px 15px; background-color:#6c757d; color:white; border:none; border-radius:5px; cursor:pointer;">Back to Dashboard</button>
+        
+        <div class="summary-box" id="summary-container">Loading Summary...</div>
+
+        <h2>Records Pending Review (Double-click to Load Discrepancy Form)</h2>
+        <div id="audit-table-container">Loading audit data...</div>
+        <p class="error-message" id="fetch-error" style="color:red; margin-top:10px;"></p>
+    </div>
+
+    <div id="discrepancyModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2>Quick Discrepancy & Sign-off</h2>
+            <p>Record: <strong id="modal-repair-id" style="color:#004c99;"></strong></p>
+
+            <form id="quickDiscrepancyForm">
+                <h3>Audit Status and Notes</h3>
+                <div class="discrepancy-form-group">
+                    <label for="Modal_Audit_Physical_Status">Audit Physical Status:</label>
+                    <select id="Modal_Audit_Physical_Status" name="Audit_Physical_Status"></select>
+                </div>
+                <div class="discrepancy-form-group">
+                    <label for="Modal_Audit_OIL_Status">Audit OIL Status:</label>
+                    <select id="Modal_Audit_OIL_Status" name="Audit_OIL_Status"></select>
+                </div>
+                
+                <div class="discrepancy-form-group">
+                    <label for="Modal_Audit_Physical_Note">Physical Audit Note (Discrepancy):</label>
+                    <textarea id="Modal_Audit_Physical_Note" name="Audit_Physical_Note" rows="3"></textarea>
+                </div>
+                <div class="discrepancy-form-group">
+                    <label for="Modal_Audit_Documentation_Note">Documentation Audit Note:</label>
+                    <textarea id="Modal_Audit_Documentation_Note" name="Audit_Documentation_Note" rows="3"></textarea>
+                </div>
+                
+                <h3 style="color:#28a745;">Closure and Response</h3>
+                <div class="discrepancy-form-group">
+                    <label for="Modal_OIL_Closure_Note">OIL Closure Note (Final Sign-off):</label>
+                    <textarea id="Modal_OIL_Closure_Note" name="OIL_Closure_Note" rows="3"></textarea>
+                </div>
+                <div class="discrepancy-form-group">
+                    <label for="Modal_Operator_Response_Note">Operator Response Note (Mandatory for Closure):</label>
+                    <textarea id="Modal_Operator_Response_Note" name="Operator_Response_Note" rows="3"></textarea>
+                </div>
+
+                <div class="file-upload-group">
+                    <label>Upload Physical Evidence (Photo/File):</label>
+                    <input type="file" id="discrepancy-file-upload" onchange="uploadDiscrepancyFile(this)" />
+                    <p id="discrepancy-file-status" style="font-size:0.8em; color:green;"></p>
+                </div>
+
+                <button type="submit" class="btn-save">Save Discrepancy & Sign-off</button>
+                <p id="modal-status-message" style="color:red; margin-top:10px;"></p>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

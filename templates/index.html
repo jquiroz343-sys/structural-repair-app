@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Structural Repair Log</title>
+    <style>
+        /* CSS para un diseño limpio y centrado */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #e9ebee; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .main-menu-card { 
+            max-width: 600px; 
+            width: 90%; 
+            background-color: #fff; 
+            padding: 40px; 
+            border-radius: 12px; 
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); 
+            text-align: center;
+        }
+        h1 { color: #004c99; margin-bottom: 30px; font-size: 2em; }
+        p { color: #555; margin-bottom: 30px; }
+        .button-grid { display: flex; justify-content: space-around; gap: 20px; margin-top: 30px; }
+        .menu-btn { 
+            flex: 1;
+            padding: 25px 20px; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .menu-btn:hover { background-color: #0056b3; }
+        
+        .menu-btn.create { background-color: #28a745; }
+        .menu-btn.create:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+    <div class="main-menu-card">
+        <h1>IATA Structural Repair Log</h1>
+        <p>1. Please select your project action to begin.</p>
+        
+        <div class="button-grid">
+            <button class="menu-btn select" onclick="window.location.href='/project/select'">
+                Select Existing Project
+            </button>
+            <button class="menu-btn create" onclick="window.location.href='/project/create'">
+                Create New Project
+            </button>
+        </div>
+    </div>
+</body>
+</html>

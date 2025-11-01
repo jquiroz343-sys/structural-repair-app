@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Structural Repair Log - 1. Project Setup</title>
+    <script>
+        // Función para crear proyecto (llama a la API)
+        window.createProject = async () => {
+            const form = document.getElementById('create-project-form');
+            const formData = new FormData(form);
+            const projectData = {};
+            
+            // Recolectar datos del formulario
+            formData.forEach((value, key) => { projectData[key] = value.trim(); });
+            
+            // Validación mínima del lado del cliente
+            if (!projectData.msn || !projectData.Aircraft_Reg || !projectData.Date_Initiated) {
+                alert("MSN, Registration, and Date Initiated are mandatory.");
+                return;
+            }
+            
+            const msgElement = document.getElementById('create-response-message');
+            msgElement.textContent = 'Creating project...';
+            msgElement.style.color = 'gray';
+            
+            try {
+                // Llama al endpoint de creación de proyecto
+                const response = await fetch('/api/projects/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(projectData)
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    msgElement.style.color = 'green';
+                    msgElement.textContent = `Success! Project ${projectData.msn} created. Proceeding to Role Selection...`;
+                    
+                    // Redirigir al menú de Rol
+                    setTimeout(() => {
+                        window.location.href = `/role_select/${projectData.msn}`;
+                    }, 1500);
+                } else {
+                    msgElement.style.color = 'red';
+                    msgElement.textContent = result.message || 'An unknown error occurred.';
+                }
+            } catch (error) {
+                msgElement.style.color = 'red';
+                msgElement.textContent = 'Network error during project creation.';
+            }
+        };
+
+        // Función para seleccionar proyecto existente
+        window.selectProject = (msn) => {
+            document.querySelectorAll('.project-list-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            document.querySelector(`[data-msn="${msn}"]`).classList.add('selected');
+            document.getElementById('finalize-msn').value = msn;
+            document.getElementById('finalize-selection-error').style.display = 'none';
+        };
+
+        // Función para continuar (Open Project)
+        window.finalizeSelection = () => {
+            const msn = document.getElementById('finalize-msn').value;
+            if (!msn) {
+                document.getElementById('finalize-selection-error').style.display = 'block';
+                return;
+            }
+            // Navegar al menú de Rol con el MSN seleccionado
+            window.location.href = `/role_select/${msn}`;
+        };
+    </script>
+    <style>
+        /* CSS OPTIMIZADO PARA LA ESTÉTICA */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #e9ebee; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .main-content { max-width: 1000px; width: 90%; background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); }
+        h1 { text-align: center; margin-bottom: 30px; color: #004c99; font-size: 1.8em; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .container { display: flex; gap: 40px; }
+        
+        /* Panel Styles */
+        .panel { flex: 1; padding: 25px; border: 1px solid #ddd; background-color: #fcfcfc; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); }
+        .panel h3 { color: #007bff; border-bottom: 1px solid #007bff; padding-bottom: 8px; margin-bottom: 15px; font-size: 1.2em; }
+        
+        /* Project List */
+        .project-list-container { 
+            max-height: 250px; 
+            overflow-y: auto; 
+            border: 1px solid #ced4da; 
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .project-list-item { 
+            padding: 12px; 
+            border-bottom: 1px solid #eee; 
+            cursor: pointer; 
+            transition: background-color 0.1s;
+        }
+        .project-list-item:last-child { border-bottom: none; }
+        .project-list-item:hover { background-color: #e9ecef; }
+        .project-list-item.selected { 
+            background-color: #d1ecf1; 
+            font-weight: 600;
+            color: #004c99;
+        }
+
+        /* Form Styling */
+        .form-group label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: 600; color: #555; }
+        .form-group input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px; }
+        .error-message { color: #dc3545; margin-top: 10px; font-weight: bold; }
+        
+        /* Button Styles */
+        .btn-blue { 
+            width: 100%;
+            padding: 12px; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 1em;
+            margin-top: 25px;
+            transition: background-color 0.2s;
+        }
+        .btn-blue:hover { background-color: #0056b3; }
+        .btn-blue:active { background-color: #004085; }
+
+        #create-project-form .btn-blue { margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <h1>IATA Structural Repair Log - 1. Project Setup</h1>
+        
+        <div class="container">
+            
+            <div class="panel">
+                <h3>Open Existing Aircraft</h3>
+                <div class="project-list-container">
+                    <div id="project-list-items">
+                        {% for msn, data in projects.items() %}
+                            <div class="project-list-item" data-msn="{{ msn }}" onclick="selectProject('{{ msn }}')">
+                                {{ msn }} - Reg: {{ data.Aircraft_Reg }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <input type="hidden" id="finalize-msn" value="">
+                <button onclick="finalizeSelection()" class="btn-blue">Continue to Role Selection</button>
+                <p class="error-message" id="finalize-selection-error" style="display:none;">**ERROR: Please select a project.**</p>
+            </div>
+
+            <div class="panel">
+                <h3>Create New Aircraft Project</h3>
+                <form id="create-project-form" onsubmit="event.preventDefault(); createProject()">
+                    <div class="form-group"><label for="new_msn">Aircraft MSN (Mandatory):</label><input type="text" id="new_msn" name="msn" required></div>
+                    <div class="form-group"><label for="Aircraft_Reg">Aircraft Registration (Mandatory):</label><input type="text" id="Aircraft_Reg" name="Aircraft_Reg" required></div>
+                    <div class="form-group"><label for="Date_Initiated">Date Initiated (Mandatory):</label><input type="text" id="Date_Initiated" name="Date_Initiated" placeholder="YYYY-MM-DD" required></div>
+                    <div class="form-group"><label for="FH_Initiated">FH Initiated:</label><input type="text" id="FH_Initiated" name="FH_Initiated"></div>
+                    <div class="form-group"><label for="FC_Initiated">FC Initiated:</label><input type="text" id="FC_Initiated" name="FC_Initiated"></div>
+                    <div class="form-group"><label for="Lease_Agreement_Ref">Lease Agreement Ref:</label><input type="text" id="Lease_Agreement_Ref" name="Lease_Agreement_Ref"></div>
+                    <button type="submit" class="btn-blue">Create Project and Select Role</button>
+                    <p class="error-message" id="create-response-message"></p>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

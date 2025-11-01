@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Repair Record - {{ repair_id }}</title>
+    <script src="{{ url_for('static', filename='repair_form.js') }}" defer></script>
+    <style>
+        /* --- ESTILOS MEJORADOS Y CORREGIDOS --- */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #e9ebee; color: #333; }
+        .container { max-width: 1300px; margin: 20px auto; padding: 25px; background-color: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #004c99; padding-bottom: 15px; margin-bottom: 25px; }
+        .header h1 { margin: 0; font-size: 26px; color: #004c99; }
+        
+        /* Pestañas (Tabs) Styling */
+        .tabs { overflow: hidden; border-bottom: 1px solid #ccc; background-color: #f8f9fa; border-radius: 8px 8px 0 0; }
+        .tabs button { 
+            background-color: transparent; 
+            float: left; 
+            border: none; 
+            outline: none; 
+            cursor: pointer; 
+            padding: 14px 25px; 
+            transition: 0.3s; 
+            font-size: 15px; 
+            font-weight: 600;
+            color: #555;
+        }
+        .tabs button:hover { background-color: #e9ecef; }
+        .tabs button.active { background-color: #fff; border-right: 1px solid #ccc; border-left: 1px solid #ccc; border-top: 3px solid #007bff; color: #007bff; margin-top: -1px; }
+        
+        .tabcontent { display: none; padding: 25px; border: 1px solid #ccc; border-top: none; background-color: #fff; border-radius: 0 0 8px 8px; }
+        
+        /* Formulario y Controles */
+        h3 { color: #004c99; border-bottom: 1px dotted #ccc; padding-bottom: 5px; margin-top: 20px; }
+        .form-row { display: flex; flex-wrap: wrap; margin-bottom: 15px; }
+        .form-group { flex: 1 1 45%; margin-right: 20px; }
+        .form-group:nth-child(even) { margin-right: 0; }
+        .form-group label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 14px; color: #333; }
+        .form-group input, .form-group select, .form-group textarea { 
+            width: 100%; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            border: 1px solid #ced4da; 
+            border-radius: 6px; 
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #007bff; box-shadow: 0 0 0 0.1rem rgba(0, 123, 255, 0.25); outline: none; }
+
+        .full-width { flex: 1 1 100%; margin-right: 0; }
+        .audit-fields { background-color: #f7f7f7; padding: 20px; border: 1px solid #ddd; border-left: 5px solid #ffc107; border-radius: 6px; margin-top: 30px; }
+        .action-buttons { margin-top: 30px; text-align: right; }
+        .action-buttons button { padding: 12px 25px; margin-left: 15px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; transition: background-color 0.2s; }
+        .action-buttons button:hover { background-color: #218838; }
+        
+        .error-message { padding: 10px; border-radius: 4px; font-weight: bold; margin-top: 15px; text-align: left; }
+        .error-message.red { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .error-message.green { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
+        
+        /* Estilos de tabla de auditoría */
+        #audit-trail-container table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+        #audit-trail-container th, #audit-trail-container td { padding: 8px; border: 1px solid #eee; text-align: left; }
+        #audit-trail-container th { background-color: #f1f1f1; }
+        
+        /* Estilos para gestión de documentos */
+        #document-fields-container p { margin-top: 5px; font-size: 13px; color: #555; }
+        #document-fields-container a { color: #007bff; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="page-title">Loading Repair Record...</h1>
+            <div>
+                <span style="font-size: 14px; margin-right: 15px;">MSN: **{{ msn }}** | Repair ID: **{{ repair_id }}**</span>
+                <button onclick="window.location.href='/dashboard/{{ msn }}'" style="background-color: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer;">Back to Dashboard</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tablink active" onclick="openTab(event, 'Tab1')" id="defaultOpen">1. ID & LOCATION</button>
+            <button class="tablink" onclick="openTab(event, 'Tab2')">2. DIMENSIONS & LIMITS</button>
+            <button class="tablink" onclick="openTab(event, 'Tab3')">3. CERTIFICATION & AUDIT</button>
+            <button class="tablink" onclick="openTab(event, 'Tab4')">4. DOCUMENTATION & HISTORY</button>
+        </div>
+
+        <form id="repairForm">
+            <div id="Tab1" class="tabcontent">
+                <h3>I. GENERAL IDENTIFICATION</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>Repair ID (R/O in Edit Mode):</label><input type="text" id="Repair_ID" name="Repair_ID" style="background-color: #eee;"></div>
+                    <div class="form-group"><label>Record Type:</label><select id="Record_Type" name="Record_Type"></select></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Date Completed (YYYY-MM-DD):</label><input type="text" id="Date_Completed" name="Date_Completed"></div>
+                    <div class="form-group"><label>FH Completed (Integer):</label><input type="text" id="FH_Completed" name="FH_Completed"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>FC Completed (Integer):</label><input type="text" id="FC_Completed" name="FC_Completed"></div>
+                    <div class="form-group"><label>Evaluation SRM Ref:</label><input type="text" id="Evaluation_SRM_Ref" name="Evaluation_SRM_Ref"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Fatigue Life Data:</label><input type="text" id="Fatigue_Life_Data" name="Fatigue_Life_Data"></div>
+                    <div class="form-group"><label>ATA Chapter:</label><select id="ATA_Chapter" name="ATA_Chapter"></select></div>
+                </div>
+                
+                <h3>II. DAMAGE LOCATION</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>Position Lateral:</label><select id="Position_Lateral" name="Position_Lateral"></select></div>
+                    <div class="form-group"><label>Position Vertical:</label><select id="Position_Vertical" name="Position_Vertical"></select></div>
+                </div>
+                <div class="form-row full-width">
+                    <div class="form-group full-width"><label>Location Description (STA/Stringer):</label><textarea id="Location_Desc" name="Location_Desc"></textarea></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Adjacent Damage ID:</label><input type="text" id="Adjacent_Damage_ID" name="Adjacent_Damage_ID"></div>
+                    <div class="form-group"><label>Component Details (S/N or P/N):</label><input type="text" id="Component_Details" name="Component_Details"></div>
+                </div>
+            </div>
+
+            <div id="Tab2" class="tabcontent">
+                <h3>III. DIMENSIONS & CONSEQUENCES</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>Dim Length/Width (Pre-Repair):</label><input type="text" id="Dim_Length_Width" name="Dim_Length_Width"></div>
+                    <div class="form-group"><label>Dim Depth (Pre-Repair):</label><input type="text" id="Dim_Depth" name="Dim_Depth"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Dim Remaining Thickness (Final T):</label><input type="text" id="Dim_Remaining_Thk" name="Dim_Remaining_Thk"></div>
+                    <div class="form-group"><label>Dim Post-Repair Depth/Patch:</label><input type="text" id="Dim_Post_Repair_Depth" name="Dim_Post_Repair_Depth"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>External Repair Area (sq. in):</label><input type="text" id="Ext_Repair_Area_SqIn" name="Ext_Repair_Area_SqIn"></div>
+                    <div class="form-group"><label>Aero/Performance Effect:</label><select id="Aero_Performance_Effect" name="Aero_Performance_Effect"></select></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>NDT Required/Performed Status:</label><select id="NDT_Required_Performed" name="NDT_Required_Performed"></select></div>
+                    <div class="form-group"><label>Design Org Ref:</label><input type="text" id="Design_Org_Ref" name="Design_Org_Ref"></div>
+                </div>
+                
+                <hr>
+                <h3>IV. STATUS & LIMITATIONS</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>Repair Status:</label><select id="Repair_Status" name="Repair_Status"></select></div>
+                    <div class="form-group"><label>Classification (Maj/Min):</label><select id="Classification" name="Classification"></select></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Threshold Limit (FH/FC/CAL):</label><input type="text" id="Threshold_Limit" name="Threshold_Limit"></div>
+                    <div class="form-group"><label>Repeat Interval (FH/FC/CAL):</label><input type="text" id="Repeat_Interval" name="Repeat_Interval"></div>
+                </div>
+            </div>
+
+            <div id="Tab3" class="tabcontent">
+                <h3>V. CERTIFICATION BASIS & ORGS</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>Approval Basis:</label><select id="Approval_Basis" name="Approval_Basis"></select></div>
+                    <div class="form-group"><label>Repair MRO Ref:</label><input type="text" id="Repair_MRO_Ref" name="Repair_MRO_Ref"></div>
+                </div>
+
+                <h3>VI. MATERIAL TRACEABILITY</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>Material P/N:</label><input type="text" id="Material_PN" name="Material_PN"></div>
+                    <div class="form-group"><label>Material Trace Ref (Lot/Batch/S/N):</label><input type="text" id="Material_Trace_Ref" name="Material_Trace_Ref"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Material Cert Ref (8130-3/CoC):</label><input type="text" id="Material_Cert_Ref" name="Material_Cert_Ref"></div>
+                    <div class="form-group"></div>
+                </div>
+
+                <h3>VII. CERTIFICATE REFERENCES</h3>
+                <div class="form-row">
+                    <div class="form-group"><label>CRS Reference:</label><input type="text" id="CRS_Ref" name="CRS_Ref"></div>
+                    <div class="form-group"><label>Logbook Reference:</label><input type="text" id="Logbook_Ref" name="Logbook_Ref"></div>
+                </div>
+                <div class="form-row full-width">
+                    <div class="form-group full-width"><label>Repair Notes (Internal):</label><textarea id="Repair_Notes" name="Repair_Notes"></textarea></div>
+                </div>
+                
+                <hr>
+                
+                <div class="audit-fields" id="audit-fields-section">
+                    <h3 style="color: #ffc107;">G. AUDIT / OIL STATUS (Auditor/Lessor Only)</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Audit Physical Status:</label><select id="Audit_Physical_Status" name="Audit_Physical_Status"></select></div>
+                        <div class="form-group"><label>Audit OIL Status:</label><select id="Audit_OIL_Status" name="Audit_OIL_Status"></select></div>
+                    </div>
+                    <div class="form-row full-width">
+                        <div class="form-group full-width"><label>Physical Audit Note:</label><textarea id="Audit_Physical_Note" name="Audit_Physical_Note" rows="3"></textarea></div>
+                    </div>
+                    <div class="form-row full-width">
+                        <div class="form-group full-width"><label>Documentation Audit Note:</label><textarea id="Audit_Documentation_Note" name="Audit_Documentation_Note" rows="3"></textarea></div>
+                    </div>
+                    <div class="form-row full-width">
+                        <div class="form-group full-width"><label>OIL Closure Note:</label><textarea id="OIL_Closure_Note" name="OIL_Closure_Note" rows="3"></textarea></div>
+                    </div>
+                    <div class="form-row full-width">
+                        <div class="form-group full-width"><label>Operator Response Note:</label><textarea id="Operator_Response_Note" name="Operator_Response_Note" rows="3"></textarea></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="Tab4" class="tabcontent">
+                <h3>VIII. MANDATORY DOCUMENTATION PATHS</h3>
+                <p>Documents are uploaded and stored centrally. Use the file input to upload new documents.</p>
+
+                <div id="document-fields-container">
+                    </div>
+                
+                <hr>
+                <h3>IX. AUDIT TRAIL</h3>
+                <div id="audit-trail-container">
+                    Loading audit history...
+                </div>
+            </div>
+            
+            <div id="status-message" class="error-message red" style="display:none;"></div>
+            
+            <div class="action-buttons">
+                <button type="submit">Save Updated Repair Record</button>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        // Initial Tab Functionality
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablink");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+        document.getElementById("defaultOpen").click();
+    </script>
+</body>
+</html>
