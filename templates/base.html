@@ -1,37 +1,47 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SRF App</title>
-  <link rel="manifest" href="/static/manifest.json"/>
-  <style>
-    body { font-family: Arial; margin: 0; background: #f4f6f9; }
-    .navbar { background: #1e40af; color: white; padding: 15px; display: flex; justify-content: space-between; }
-    .navbar a { color: white; text-decoration: none; }
-    .container { padding: 20px; max-width: 1200px; margin: auto; }
-    .alert { background: #fee; color: #c00; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-    th { background: #1e40af; color: white; }
-    button, a { margin: 5px; padding: 8px 12px; background: #1e40af; color: white; text-decoration: none; border-radius: 5px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRL App</title>
+    <style>
+        body { font-family: Arial; margin: 0; background: #f4f6f9; }
+        .navbar { background: #1e40af; color: white; padding: 15px; display: flex; justify-content: space-between; }
+        .navbar a { color: white; text-decoration: none; }
+        .container { padding: 20px; max-width: 1200px; margin: auto; }
+        .alert { background: #fee; color: #c00; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #1e40af; color: white; }
+        button, a { margin: 5px; padding: 8px 12px; background: #1e40af; color: white; text-decoration: none; border-radius: 5px; }
+        .role-section { background: #e8f4fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-  <div class="navbar">
-    <h1>SRF App</h1>
-    <div>
-      <span>{{ session.role|title }}</span>
-      <a href="/logout">Salir</a>
+    <div class="navbar">
+        <h1>Structural Repair Log</h1>
+        <div>
+            <span>{{ session.role|title }}</span>
+            <a href="/logout">Logout</a>
+        </div>
     </div>
-  </div>
-  <div class="container">
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="alert">{{ messages[0] }}</div>
-      {% endif %}
-    {% endwith %}
-    {% block content %}{% endblock %}
-  </div>
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert">{{ messages[0] }}</div>
+            {% endif %}
+        {% endwith %}
+        <div class="role-section">
+            <h3>Your Role: {{ session.role|title }}</h3>
+            {% if session.role == 'operator' %}
+                <p>You can add and edit repairs.</p>
+            {% elif session.role == 'auditor' %}
+                <p>You can inspect and audit repairs.</p>
+            {% elif session.role == 'lessor' %}
+                <p>You can download PDFs and view audit trail.</p>
+            {% endif %}
+        </div>
+        {% block content %}{% endblock %}
+    </div>
 </body>
 </html>
