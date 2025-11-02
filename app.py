@@ -224,7 +224,27 @@ def edit_repair_web(msn, repair_id):
 @app.route('/audit/<msn>')
 def audit_dashboard_web(msn):
     return render_template('audit.html', msn=msn)
+# --- LOGIN Y ROLES ---
+from flask import session, flash
 
+@app.route('/login', methods=['POST'])
+def login():
+    msn = request.form['msn']
+    password = request.form['password']
+    role = request.form['role']
+    
+    if password != 'redelivery2025':
+        flash("Incorrect password")
+        return redirect(url_for('role_select_web', msn=msn))
+    
+    session['role'] = role
+    session['msn'] = msn
+    return redirect(url_for('dashboard', msn=msn))
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
 # --- ARRANQUE PARA RENDER ---
 if __name__ == '__main__':
     print("\n-------------------------------------------------")
@@ -232,3 +252,4 @@ if __name__ == '__main__':
     print("-------------------------------------------------")
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
