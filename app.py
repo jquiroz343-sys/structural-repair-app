@@ -1,4 +1,4 @@
-# --- app.py (LISTO PARA RENDER - SIN CAMBIOS EN FUNCIONALIDAD) ---
+# --- app.py (COMPLETO - LISTO PARA RENDER) ---
 from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory, make_response
 import data_manager
 import audit_log
@@ -8,13 +8,13 @@ import csv
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import io
-import tempfile  # NUEVO: Para Render
+import tempfile
 
-# --- CONFIGURACIÓN DE LA APLICACIÓN ---
+# --- CONFIGURACIÓN ---
 app = Flask(__name__)
 app.secret_key = 'your_strong_secret_key' 
 
-# --- UPLOADS EN /TMP (PARA RENDER) ---
+# --- UPLOADS EN /TMP (RENDER) ---
 BASE_DIR = tempfile.gettempdir()
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -22,18 +22,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'dwg', 'dxf', 'doc', 'docx', 'xls', 'xlsx'} 
 
-# --- Utilitarios ---
+# --- UTILITARIOS ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def get_user_context():
-    return {
-        'role': request.headers.get('X-User-Role', 'UNKNOWN'), 
-        'name': request.headers.get('X-User-Name', 'N/A'),
-        'ip': request.remote_addr 
-    }
-
-# --- VALIDACIÓN DE DATOS (55 CAMPOS) ---
+# --- VALIDACIÓN DE 55 CAMPOS ---
 def validate_repair_data(record_data):
     if not record_data.get('Repair_ID'):
         return False, "Validation Error: Repair ID is mandatory."
@@ -66,7 +59,7 @@ def validate_repair_data(record_data):
              return False, f"Validation Error: Threshold or Interval is mandatory for the selected Repair Status ('{status}')."
     return True, None
 
-# --- RUTAS API ---
+# --- API RUTAS ---
 @app.route('/api/projects/create', methods=['POST'])
 def create_project_api():
     project_data = request.json
@@ -100,7 +93,7 @@ def add_repair(msn):
         return jsonify({"success": False, "message": validation_message}), 400
     success, message = data_manager.add_repair_record(msn, record_data)
     if success:
-        audit_log.log_event(msn, record_data['Repair_ID'], "ADD_RECORD", get_user_context(), data_changed=record_data)
+        audit_log.log_event(msn, record_data['Repair_ID'], "ADD_RECORD", {'role': 'OPERATOR', 'ip': request.remote_addr, 'name': 'N/A'}, data_changed=record_data)
     return jsonify({"success": success, "message": message})
 
 @app.route('/api/repairs/update/<msn>/<repair_id>', methods=['PUT'])
@@ -115,7 +108,7 @@ def update_repair(msn, repair_id):
         return jsonify({"success": False, "message": validation_message}), 400
     success, message = data_manager.update_repair_record(msn, repair_id, update_data)
     if success:
-        audit_log.log_event(msn, repair_id, f"UPDATE_{get_user_context()['role'].upper()}", get_user_context(), data_changed=update_data)
+        audit_log.log_event(msn, repair_id, "UPDATE_RECORD", {'role': 'OPERATOR', 'ip': request.remote_addr, 'name': 'N/A'}, data_changed=update_data)
     return jsonify({"success": success, "message": message})
 
 @app.route('/api/report/oil_summary/<msn>', methods=['GET'])
@@ -175,7 +168,7 @@ def upload_document(msn, repair_id, doc_field):
         update_data = {doc_field: new_filename}
         success, message = data_manager.update_repair_record(msn, repair_id, update_data)
         if success:
-            audit_log.log_event(msn, repair_id, "UPLOAD_DOC", get_user_context(), data_changed={doc_field: new_filename})
+            audit_log.log_event(msn, repair_id, "UPLOAD_DOC", {'role': 'OPERATOR', 'ip': request.remote_addr, 'name': 'N/A'}, data_changed={doc_field: new_filename})
             return jsonify({"success": True, "message": "File uploaded and record updated.", "stored_filename": new_filename})
         else:
             os.remove(save_path)
@@ -202,10 +195,6 @@ def project_select_page():
 def project_create_page():
     return render_template('project_setup_create.html') 
 
-@app.route('/role_select/<msn>')
-def role_select_web(msn):
-    return render_template('role_select.html', msn=msn)
-
 @app.route('/dashboard/<msn>')
 def dashboard(msn):
     project_details = data_manager.get_project_details(msn)
@@ -217,39 +206,17 @@ def dashboard(msn):
 def view_repairs_web(msn):
     return render_template('view_repairs.html', msn=msn) 
 
+# --- EDITAR REPARACIÓN CON 55 CAMPOS ---
 @app.route('/edit/<msn>/<repair_id>', methods=['GET'])
 def edit_repair_web(msn, repair_id):
-    return render_template('edit_repair.html', msn=msn, repair_id=repair_id)
+    repair = data_manager.get_repair_record_by_id(msn, repair_id)
+    return render_template('edit_repair.html', msn=msn, repair_id=repair_id, repair=repair)
 
 @app.route('/audit/<msn>')
 def audit_dashboard_web(msn):
     return render_template('audit.html', msn=msn)
-# --- LOGIN Y ROLES ---
-from flask import session, flash
 
-@app.route('/login', methods=['POST'])
-def login():
-    msn = request.form['msn']
-    password = request.form['password']
-    role = request.form['role']
-    
-    if password != 'redelivery2025':
-        flash("Incorrect password")
-        return redirect(url_for('role_select_web', msn=msn))
-    
-    session['role'] = role
-    session['msn'] = msn
-    return redirect(url_for('dashboard', msn=msn))
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
 # --- ARRANQUE PARA RENDER ---
 if __name__ == '__main__':
-    print("\n-------------------------------------------------")
-    print("FLASK SERVER LISTO PARA RENDER")
-    print("-------------------------------------------------")
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
-
