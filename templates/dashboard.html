@@ -2,76 +2,59 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard - Repairs</title>
+    <title>Dashboard - {{ msn }}</title>
     <style>
         body { font-family: Arial; margin: 0; background: #f4f6f9; }
-        .navbar { background: #1e40af; color: white; padding: 15px; display: flex; justify-content: space-between; }
-        .container { padding: 20px; max-width: 1200px; margin: auto; }
-        .alert { background: #fee; color: #c00; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
+        .container { padding: 20px; max-width: 1100px; margin: auto; }
+        .oil-box { background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; font-size: 18px; }
+        .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 25px 0; }
+        .menu-btn { background: #1976d2; color: white; padding: 18px; text-align: center; border-radius: 8px; text-decoration: none; font-weight: bold; }
+        .menu-btn:hover { background: #1565c0; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
         th { background: #1e40af; color: white; }
-        button, a { margin: 5px; padding: 8px 12px; background: #1e40af; color: white; text-decoration: none; border-radius: 5px; }
-        .oil-summary { background: #e8f4fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-    <div class="navbar">
+    <div class="header">
         <h1>Structural Repair Log</h1>
-        <div>
-            <span>{{ role|title }}</span>
-            <a href="/logout">Logout</a>
-        </div>
+        <p>Aircraft: <strong>{{ msn }}</strong> | Role: <strong>{{ role|title }}</strong></p>
     </div>
     <div class="container">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="alert">{{ messages[0] }}</div>
-            {% endif %}
-        {% endwith %}
-        <h2>Dashboard - Repairs</h2>
-        
-        <!-- OIL Summary -->
-        <div class="oil-summary">
-            <h3>OIL Summary</h3>
-            <p>Open: {{ oil_open }} | Closed: {{ oil_closed }} | Progress: {{ progress_percent }}%</p>
-            <p>Physical Non-Conforming: {{ phys_non_conforming }}</p>
+        <div class="oil-box">
+            <h3>OIL Progress</h3>
+            <p><strong>Open:</strong> {{ oil_open }} | <strong>Closed:</strong> {{ oil_closed }} | <strong>Non-Conforming:</strong> {{ non_conforming }}</strong></p>
         </div>
-        
-        {% if role == 'operator' %}
-            <a href="/add">+ Add Repair</a>
-        {% endif %}
+
+        <div class="menu">
+            {% if role == 'operator' %}
+                <a href="/edit/{{ msn }}/NEW" class="menu-btn">1. Create / Edit Repair</a>
+                <a href="/oil_response/{{ msn }}" class="menu-btn">2. OIL Response</a>
+                <a href="/api/export/status_report/{{ msn }}" class="menu-btn">3. Reports</a>
+            {% elif role in ['auditor', 'lessor'] %}
+                <a href="/view/{{ msn }}" class="menu-btn">1. Review Repairs</a>
+                <a href="/oil_audit/{{ msn }}" class="menu-btn">2. OIL Audit</a>
+                <a href="/physical_audit/{{ msn }}" class="menu-btn">3. Physical Audit</a>
+                <a href="/signed_reports/{{ msn }}" class="menu-btn">4. Signed OIL Reports</a>
+            {% endif %}
+        </div>
+
+        <h3>Current Repairs</h3>
         <table>
-            <tr>
-                <th>ID</th>
-                <th>Aircraft</th>
-                <th>ATA Chapter</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
+            <tr><th>ID</th><th>ATA</th><th>Status</th><th>OIL</th><th>Action</th></tr>
             {% for r in repairs %}
             <tr>
-                <td>{{ r.id }}</td>
-                <td>{{ r.get('aircraft', 'N/A') }}</td>
-                <td>{{ r.get('ata_chapter', 'N/A') }}</td>
-                <td>{{ 'Open' if not r.get('closed_date') else 'Closed' }}</td>
-                <td>
-                    {% if role in ['operator', 'auditor'] %}
-                        <a href="/edit/{{ r.id }}">Edit</a>
-                    {% endif %}
-                    {% if role == 'lessor' %}
-                        <a href="/pdf/{{ r.id }}">PDF</a>
-                    {% endif %}
-                    {% if role in ['auditor', 'lessor'] %}
-                        <a href="/audit">Audit Trail</a>
-                    {% endif %}
-                </td>
+                <td>{{ r.Repair_ID }}</td>
+                <td>{{ r.ATA_Chapter }}</td>
+                <td>{{ r.Repair_Status }}</td>
+                <td>{{ r.Audit_OIL_Status }}</td>
+                <td><a href="/edit/{{ msn }}/{{ r.Repair_ID }}">Edit</a></td>
             </tr>
             {% else %}
-            <tr><td colspan="5">No repairs found</td></tr>
+            <tr><td colspan="5">No repairs recorded yet.</td></tr>
             {% endfor %}
         </table>
-        <a href="/audit">View Audit Trail</a>
     </div>
 </body>
 </html>
