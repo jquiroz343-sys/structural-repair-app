@@ -9,4 +9,53 @@
         .container { padding: 20px; max-width: 1000px; margin: auto; }
         .oil-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .oil-card.open { border-left: 5px solid #d32f2f; }
-        .oil-card.closed
+        .oil-card.closed { border-left: 5px solid #388e3c; }
+        textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; min-height: 100px; }
+        input[type="file"] { margin: 10px 0; }
+        button { background: #1976d2; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #1565c0; }
+        .back { display: inline-block; margin: 20px 0; color: #1e40af; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>OIL Response - {{ msn }}</h1>
+        <p>Role: <strong>Operator</strong></p>
+    </div>
+    <div class="container">
+        <a href="/dashboard/{{ msn }}" class="back">← Back to Dashboard</a>
+
+        <h2>Open OIL Items</h2>
+        {% for r in open_repairs %}
+        <div class="oil-card open">
+            <h3>Repair ID: {{ r.Repair_ID }} | ATA: {{ r.ATA_Chapter }}</h3>
+            <p><strong>OIL Note:</strong> {{ r.OIL_Closure_Note or 'No note from auditor' }}</p>
+            <p><strong>Priority:</strong> {{ r.OIL_Priority or 'N/A' }}</p>
+
+            <form action="/api/oil/respond/{{ msn }}/{{ r.Repair_ID }}" method="POST" enctype="multipart/form-data">
+                <label><strong>Your Response:</strong></label>
+                <textarea name="response" placeholder="Write your corrective action or clarification..." required></textarea>
+
+                <label><strong>Attach Evidence (optional):</strong></label>
+                <input type="file" name="evidence" accept=".pdf,.jpg,.png,.docx">
+
+                <button type="submit">Submit Response</button>
+            </form>
+        </div>
+        {% else %}
+        <p style="text-align: center; color: #388e3c; font-weight: bold;">No open OIL items. All repairs are compliant!</p>
+        {% endfor %}
+
+        <h2>Closed OIL Items</h2>
+        {% for r in closed_repairs %}
+        <div class="oil-card closed">
+            <h3>Repair ID: {{ r.Repair_ID }}</h3>
+            <p><strong>Operator Response:</strong> {{ r.Operator_Response_Note or 'N/A' }}</p>
+            <p><strong>Closed by Auditor</strong></p>
+        </div>
+        {% else %}
+        <p style="text-align: center; color: #999;">No closed OIL items yet.</p>
+        {% endfor %}
+    </div>
+</body>
+</html>
