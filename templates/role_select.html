@@ -4,25 +4,25 @@
     <meta charset="UTF-8">
     <title>Select Role</title>
     <style>
-        body { font-family: Arial; background: #f0f0f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .role-box { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px; text-align: center; }
-        select, button { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        body { font-family: Arial; text-align: center; margin-top: 100px; background: #f4f6f9; }
+        .card { width: 400px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        select, button { width: 100%; padding: 12px; margin: 10px 0; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
         button { background: #1e40af; color: white; font-weight: bold; cursor: pointer; }
+        button:hover { background: #1e3a8a; }
     </style>
 </head>
 <body>
-    <div class="role-box">
+    <div class="card">
         <h2>Select Your Role</h2>
-        <form method="POST" action="/login">
-            <input type="hidden" name="msn" value="{{ msn }}">
-            <input type="password" name="password" placeholder="Password" required />
+        <p>Aircraft: <strong>{{ msn }}</strong></p>
+        <form method="POST">
             <select name="role" required>
-                <option value="">Select role</option>
+                <option value="">-- Choose Role --</option>
                 <option value="operator">Operator</option>
                 <option value="auditor">Auditor</option>
                 <option value="lessor">Lessor</option>
             </select>
-            <button type="submit">Login</button>
+            <button type="submit">Continue →</button>
         </form>
     </div>
 </body>
