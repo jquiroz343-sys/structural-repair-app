@@ -1,37 +1,77 @@
-{% extends "base.html" %}
-{% block content %}
-<h2>Dashboard - Reparaciones</h2>
-{% if session.role == 'operator' %}
-  <a href="/add">+ Añadir Reparación</a>
-{% endif %}
-<table>
-  <tr>
-    <th>ID</th>
-    <th>Aircraft</th>
-    <th>ATA</th>
-    <th>Estado</th>
-    <th>Acciones</th>
-  </tr>
-  {% for r in repairs %}
-  <tr>
-    <td>{{ r.id }}</td>
-    <td>{{ r.get('aircraft', '') }}</td>
-    <td>{{ r.get('ata_chapter', '') }}</td>
-    <td>{{ 'Abierto' if not r.get('closed') else 'Cerrado' }}</td>
-    <td>
-      {% if session.role in ['operator', 'auditor'] %}
-        <a href="/edit/{{ r.id }}">Editar</a>
-      {% endif %}
-      {% if session.role == 'lessor' %}
-        <a href="/pdf/{{ r.id }}" target="_blank">PDF</a>
-      {% endif %}
-      {% if session.role in ['auditor', 'lessor'] %}
-        <a href="/audit">Audit Trail</a>
-      {% endif %}
-    </td>
-  </tr>
-  {% else %}
-  <tr><td colspan="5">No hay reparaciones</td></tr>
-  {% endfor %}
-</table>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Repairs</title>
+    <style>
+        body { font-family: Arial; margin: 0; background: #f4f6f9; }
+        .navbar { background: #1e40af; color: white; padding: 15px; display: flex; justify-content: space-between; }
+        .container { padding: 20px; max-width: 1200px; margin: auto; }
+        .alert { background: #fee; color: #c00; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #1e40af; color: white; }
+        button, a { margin: 5px; padding: 8px 12px; background: #1e40af; color: white; text-decoration: none; border-radius: 5px; }
+        .oil-summary { background: #e8f4fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>Structural Repair Log</h1>
+        <div>
+            <span>{{ role|title }}</span>
+            <a href="/logout">Logout</a>
+        </div>
+    </div>
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert">{{ messages[0] }}</div>
+            {% endif %}
+        {% endwith %}
+        <h2>Dashboard - Repairs</h2>
+        
+        <!-- OIL Summary -->
+        <div class="oil-summary">
+            <h3>OIL Summary</h3>
+            <p>Open: {{ oil_open }} | Closed: {{ oil_closed }} | Progress: {{ progress_percent }}%</p>
+            <p>Physical Non-Conforming: {{ phys_non_conforming }}</p>
+        </div>
+        
+        {% if role == 'operator' %}
+            <a href="/add">+ Add Repair</a>
+        {% endif %}
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Aircraft</th>
+                <th>ATA Chapter</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+            {% for r in repairs %}
+            <tr>
+                <td>{{ r.id }}</td>
+                <td>{{ r.get('aircraft', 'N/A') }}</td>
+                <td>{{ r.get('ata_chapter', 'N/A') }}</td>
+                <td>{{ 'Open' if not r.get('closed_date') else 'Closed' }}</td>
+                <td>
+                    {% if role in ['operator', 'auditor'] %}
+                        <a href="/edit/{{ r.id }}">Edit</a>
+                    {% endif %}
+                    {% if role == 'lessor' %}
+                        <a href="/pdf/{{ r.id }}">PDF</a>
+                    {% endif %}
+                    {% if role in ['auditor', 'lessor'] %}
+                        <a href="/audit">Audit Trail</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5">No repairs found</td></tr>
+            {% endfor %}
+        </table>
+        <a href="/audit">View Audit Trail</a>
+    </div>
+</body>
+</html>
