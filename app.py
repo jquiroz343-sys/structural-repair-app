@@ -1,4 +1,4 @@
-# --- app.py (COMPLETO - LISTO PARA RENDER) ---
+# --- app.py (COMPLETO - CON RUTA ROLE_SELECT) ---
 from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory, make_response
 import data_manager
 import audit_log
@@ -10,11 +10,9 @@ from datetime import datetime
 import io
 import tempfile
 
-# --- CONFIGURACIÓN ---
 app = Flask(__name__)
 app.secret_key = 'your_strong_secret_key' 
 
-# --- UPLOADS EN /TMP (RENDER) ---
 BASE_DIR = tempfile.gettempdir()
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -22,11 +20,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'dwg', 'dxf', 'doc', 'docx', 'xls', 'xlsx'} 
 
-# --- UTILITARIOS ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# --- VALIDACIÓN DE 55 CAMPOS ---
 def validate_repair_data(record_data):
     if not record_data.get('Repair_ID'):
         return False, "Validation Error: Repair ID is mandatory."
@@ -59,7 +55,6 @@ def validate_repair_data(record_data):
              return False, f"Validation Error: Threshold or Interval is mandatory for the selected Repair Status ('{status}')."
     return True, None
 
-# --- API RUTAS ---
 @app.route('/api/projects/create', methods=['POST'])
 def create_project_api():
     project_data = request.json
@@ -181,7 +176,6 @@ def download_document(msn, filename):
     doc_dir = os.path.join(data_manager.BASE_DIR, msn, 'docs')
     return send_from_directory(doc_dir, secure_filename(filename), as_attachment=True)
 
-# --- RUTAS WEB ---
 @app.route('/')
 def index():
     return render_template('index.html') 
@@ -206,7 +200,6 @@ def dashboard(msn):
 def view_repairs_web(msn):
     return render_template('view_repairs.html', msn=msn) 
 
-# --- EDITAR REPARACIÓN CON 55 CAMPOS ---
 @app.route('/edit/<msn>/<repair_id>', methods=['GET'])
 def edit_repair_web(msn, repair_id):
     repair = data_manager.get_repair_record_by_id(msn, repair_id)
@@ -216,7 +209,12 @@ def edit_repair_web(msn, repair_id):
 def audit_dashboard_web(msn):
     return render_template('audit.html', msn=msn)
 
-# --- ARRANQUE PARA RENDER ---
+# --- RUTA QUE FALTABA ---
+@app.route('/role_select/<msn>')
+def role_select_web(msn):
+    return redirect(url_for('dashboard', msn=msn))
+
+# --- ARRANQUE ---
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
