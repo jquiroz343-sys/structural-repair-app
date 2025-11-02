@@ -2,87 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Structural Repair Log - 3. Role Selection</title>
+    <title>Select Role</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 90vh; }
-        .role-panel { padding: 40px; border: 1px solid #ccc; background-color: #fff; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); text-align: center; max-width: 500px; width: 100%; }
-        h1 { color: #004c99; margin-bottom: 20px; font-size: 1.8em; }
-        .msn-info { font-size: 1.2em; margin-bottom: 30px; font-weight: bold; color: #333; }
-        .role-button-group button { padding: 15px 25px; margin: 10px 5px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 1em; transition: background-color 0.2s; }
-        .role-button-group button:hover { background-color: #0056b3; }
-        
-        .name-input-group { margin-top: 30px; margin-bottom: 30px; text-align: left; }
-        .name-input-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
-        .name-input-group input { padding: 12px; width: 100%; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 5px; }
-
-        .continue-btn { padding: 12px 25px; margin-top: 10px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; transition: background-color 0.2s; }
-        .continue-btn:hover { background-color: #218838; }
-        
-        .error-message { color: #dc3545; margin-top: 15px; display: none; font-weight: bold; }
-
-        /* Botón de Retorno */
-        .back-btn { background-color: #6c757d; margin-top: 20px; }
-        .back-btn:hover { background-color: #5a6268; }
+        body { font-family: Arial; background: #f0f0f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .role-box { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+        select, button { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        button { background: #1e40af; color: white; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="role-panel">
-        <h1>3. Role Selection and Identification</h1>
-        <p class="msn-info">Working on Aircraft MSN: <span id="msn-display" style="color: #dc3545;">{{ msn }}</span></p>
-
-        <h3>Select Your Role:</h3>
-        <div class="role-button-group">
-            <button onclick="selectRole('Lessor')">Lessor</button>
-            <button onclick="selectRole('Auditor')">Auditor</button>
-            <button onclick="selectRole('Operator')">Operator</button>
-        </div>
-        
-        <div class="name-input-group">
-            <label for="full-name">Full Name (Mandatory for Trazability):</label>
-            <input type="text" id="full-name" placeholder="E.g., John Doe / Manager" required>
-        </div>
-
-        <button id="continue-button" class="continue-btn" onclick="finalizeRole()">Continue to Dashboard</button>
-        <button onclick="window.location.href='/'" class="continue-btn back-btn">Go Back (Change Project)</button>
-        
-        <p class="error-message" id="role-error-msg">**ERROR: Role and Name are required.**</p>
+    <div class="role-box">
+        <h2>Select Your Role</h2>
+        <form method="POST" action="/login">
+            <input type="hidden" name="msn" value="{{ msn }}">
+            <input type="password" name="password" placeholder="Password" required />
+            <select name="role" required>
+                <option value="">Select role</option>
+                <option value="operator">Operator</option>
+                <option value="auditor">Auditor</option>
+                <option value="lessor">Lessor</option>
+            </select>
+            <button type="submit">Login</button>
+        </form>
     </div>
-
-    <script>
-        const MSN = "{{ msn }}";
-        let selectedRole = null;
-        
-        window.selectRole = (role) => {
-            selectedRole = role;
-            document.getElementById('role-error-msg').style.display = 'none';
-            
-            // Simular el estado activo del botón
-            document.querySelectorAll('.role-button-group button').forEach(btn => {
-                btn.style.backgroundColor = btn.textContent.trim() === role ? '#17a2b8' : '#007bff';
-            });
-        };
-
-        window.finalizeRole = () => {
-            const fullName = document.getElementById('full-name').value.trim();
-            if (!selectedRole || !fullName) {
-                document.getElementById('role-error-msg').style.display = 'block';
-                return;
-            }
-            // Almacenar el nombre y el rol en el navegador para la trazabilidad API
-            localStorage.setItem('userRole', selectedRole);
-            localStorage.setItem('userName', fullName);
-            
-            // Navegar al Dashboard principal del proyecto
-            window.location.href = `/dashboard/${MSN}`;
-        };
-        
-        // Recuperar si ya había datos
-        if (localStorage.getItem('userRole')) {
-             selectRole(localStorage.getItem('userRole'));
-        }
-        if (localStorage.getItem('userName')) {
-            document.getElementById('full-name').value = localStorage.getItem('userName');
-        }
-    </script>
 </body>
 </html>
