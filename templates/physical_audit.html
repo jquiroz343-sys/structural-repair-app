@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Physical Audit - {{ msn }}</title>
+    <style>
+        body { font-family: Arial; margin: 0; background: #f4f6f9; }
+        .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
+        .container { padding: 20px; max-width: 1000px; margin: auto; }
+        .audit-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .audit-card.non-conforming { border-left: 5px solid #d32f2f; }
+        .audit-card.conforming { border-left: 5px solid #388e3c; }
+        .section { margin: 15px 0; padding: 12px; background: #f9f9f9; border-radius: 5px; }
+        textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; min-height: 80px; }
+        input[type="file"] { margin: 10px 0; }
+        button { background: #1976d2; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #1565c0; }
+        button.close { background: #388e3c; }
+        button.close:hover { background: #2e7d32; }
+        .back { display: inline-block; margin: 20px 0; color: #1e40af; text-decoration: none; font-weight: bold; }
+        .photo { max-width: 100%; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Physical Audit - {{ msn }}</h1>
+        <p>Role: <strong>{{ role|title }}</strong></p>
+    </div>
+    <div class="container">
+        <a href="/dashboard/{{ msn }}" class="back">Back to Dashboard</a>
+
+        <h2>Physical Inspection Items</h2>
+
+        {% for r in physical_items %}
+        <div class="audit-card {{ 'non-conforming' if r.Audit_Physical_Status == 'Non-Conforming' else 'conforming' }}">
+            <h3>Repair ID: {{ r.Repair_ID }} | ATA: {{ r.ATA_Chapter }}</h3>
+            <p><strong>Current Status:</strong> 
+                <span style="font-weight: bold; color: 
+                    {% if r.Audit_Physical_Status == 'Non-Conforming' %}#d32f2f{% else %}#388e3c{% endif %}">
+                    {{ r.Audit_Physical_Status }}
+                </span>
+            </p>
+
+            <!-- EXISTING PHYSICAL NOTE -->
+            {% if r.Audit_Physical_Note %}
+            <div class="section">
+                <strong>Previous Finding:</strong><br>
+                {{ r.Audit_Physical_Note }}
+            </div>
+            {% endif %}
+
+            <!-- PHOTOS FROM OPERATOR -->
+            {% if r.Doc_Photo_Post %}
+            <div class="section">
+                <strong>Operator Photo (Post-Repair):</strong><br>
+                <a href="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" target="_blank">
+                    <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" class="photo" alt="Post-Repair Photo">
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- AUDITOR ACTION -->
+            {% if r.Audit_Physical_Status != 'Conforming' %}
+            <form action="/api/physical/audit/{{ msn }}/{{ r.Repair_ID }}" method="POST" enctype="multipart/form-data">
+                <label><strong>Your Observation:</strong></label>
+                <textarea name="physical_note" placeholder="Describe physical non-conformance or verification..." required></textarea>
+
+                <label><strong>Upload Inspection Photo:</strong></label>
+                <input type="file" name="inspection_photo" accept=".jpg,.jpeg,.png" required>
+
+                <div>
+                    <button type="submit" name="action" value="non_conforming">Mark Non-Conforming</button>
+                    <button type="submit" name="action" value="conforming" class="close">Mark Conforming</button>
+                </div>
+            </form>
+            {% else %}
+            <p style="color: #388e3c; font-weight: bold;">Physical audit closed.</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <p style="text-align: center; color: #388e3c; font-weight: bold; font-size: 18px;">
+            No physical audit items pending. All repairs are physically conforming!
+        </p>
+        {% endfor %}
+    </div>
+</body>
+</html>
