@@ -265,9 +265,20 @@ def physical_audit_action(msn, repair_id):
         audit_log.log_event(msn, repair_id, f"PHYSICAL_AUDIT_{action.upper()}", {'role': session['role']}, {"note": note})
     
     return redirect(url_for('physical_audit', msn=msn))
+    # --- SIGNED REPORTS PAGE ---
+@app.route('/signed_reports/<msn>')
+def signed_reports(msn):
+    if session.get('role') not in ['auditor', 'lessor']:
+        return redirect(url_for('dashboard', msn=msn))
+    
+    repairs = data_manager.get_all_repairs(msn)
+    closed_oil = [r for r in repairs if r.get('Audit_OIL_Status') == 'Closed']
+    
+    return render_template('signed_reports.html', msn=msn, closed_oil=closed_oil, role=session['role'])
 # --- ARRANQUE ---
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
