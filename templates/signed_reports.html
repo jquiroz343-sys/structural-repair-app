@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Signed OIL Reports - {{ msn }}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { font-family: Arial; margin: 0; background: #f4f6f9; }
+        .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
+        .container { padding: 20px; max-width: 1000px; margin: auto; }
+        .report-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .report-card.closed { border-left: 5px solid #388e3c; }
+        .section { margin: 15px 0; padding: 12px; background: #f9f9f9; border-radius: 5px; font-size: 14px; }
+        .signature { margin-top: 30px; text-align: right; font-style: italic; color: #1976d2; }
+        button { background: #388e3c; color: white; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2e7d32; }
+        .back { display: inline-block; margin: 20px 0; color: #1e40af; text-decoration: none; font-weight: bold; }
+        .download-btn { background: #1976d2; margin-left: 10px; }
+        .download-btn:hover { background: #1565c0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Signed OIL Reports - {{ msn }}</h1>
+        <p>Role: <strong>{{ role|title }}</strong></p>
+    </div>
+    <div class="container">
+        <a href="/dashboard/{{ msn }}" class="back">Back to Dashboard</a>
+
+        <h2>Closed OIL Reports (Ready for Signature)</h2>
+
+        {% for r in closed_oil %}
+        <div class="report-card closed" id="report-{{ r.Repair_ID }}">
+            <h3>Repair ID: {{ r.Repair_ID }} | ATA: {{ r.ATA_Chapter }}</h3>
+            <p><strong>Closure Date:</strong> {{ r.OIL_Closure_Note.split(']')[-1] if ']' in r.OIL_Closure_Note else 'N/A' }}</p>
+
+            <div class="section">
+                <strong>Auditor Finding:</strong><br>
+                {{ r.OIL_Closure_Note.split('[Auditor')[0] if '[Auditor' in r.OIL_Closure_Note else r.OIL_Closure_Note }}
+            </div>
+
+            {% if r.Operator_Response_Note %}
+            <div class="section" style="background: #e8f5e9;">
+                <strong>Operator Response:</strong><br>
+                {{ r.Operator_Response_Note }}
+            </div>
+            {% endif %}
+
+            <div class="section">
+                <strong>Final Closure Note:</strong><br>
+                {{ r.OIL_Closure_Note.split(']')[-1] if ']' in r.OIL_Closure_Note else 'Closed' }}
+            </div>
+
+            <div class="signature">
+                <p>___________________________<br>
+                <strong>Auditor: {{ session.get('name', 'Auditor') }}</strong><br>
+                Date: <span id="date-{{ r.Repair_ID }}"></span>
+                </p>
+            </div>
+
+            <button onclick="generatePDF('{{ r.Repair_ID }}')">Download Signed PDF</button>
+            <button class="download-btn" onclick="window.open('/api/documents/download/{{ msn }}/{{ r.Doc_Audit_Path }}', '_blank')">
+                View Audit Doc
+            </button>
+        </div>
+        {% else %}
+        <p style="text-align: center; color: #999; font-size: 18px;">
+            No closed OIL reports available for signing.
+        </p>
+        {% endfor %}
+    </div>
+
+    <script>
+        // Set current date
+        document.querySelectorAll('[id^="date-"]').forEach(el => {
+            const today = new Date().toLocaleDateString('en-GB');
+            el.textContent = today;
+        });
+
+        // Generate PDF
+        function generatePDF(repairId) {
+            const { jsPDF } = window.jspdf;
+            const element = document.getElementById('report-' + repairId);
+            
+            html2canvas(element, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 190;
+                const pageHeight = 280;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 10;
+
+                pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                pdf.save(`OIL_Report_${repairId}_{new Date().toISOString().slice(0,10)}.pdf`);
+            });
+        }
+    </script>
+</body>
+</html>
