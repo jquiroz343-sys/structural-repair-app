@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OIL Audit - {{ msn }}</title>
+    <style>
+        body { font-family: Arial; margin: 0; background: #f4f6f9; }
+        .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
+        .container { padding: 20px; max-width: 1000px; margin: auto; }
+        .oil-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .oil-card.open { border-left: 5px solid #d32f2f; }
+        .oil-card.review { border-left: 5px solid #f57c00; }
+        .oil-card.closed { border-left: 5px solid #388e3c; }
+        .section { margin: 15px 0; padding: 10px; background: #f9f9f9; border-radius: 5px; }
+        textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; min-height: 80px; }
+        input[type="file"] { margin: 10px 0; }
+        button { background: #1976d2; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #1565c0; }
+        button.close { background: #388e3c; }
+        button.close:hover { background: #2e7d32; }
+        button.reject { background: #d32f2f; }
+        button.reject:hover { background: #b71c1c; }
+        .back { display: inline-block; margin: 20px 0; color: #1e40af; text-decoration: none; font-weight: bold; }
+        .evidence { color: #1976d2; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>OIL Audit - {{ msn }}</h1>
+        <p>Role: <strong>{{ role|title }}</strong></p>
+    </div>
+    <div class="container">
+        <a href="/dashboard/{{ msn }}" class="back">← Back to Dashboard</a>
+
+        <h2>OIL Items Requiring Audit</h2>
+
+        {% for r in oil_items %}
+        <div class="oil-card {{ 'open' if r.Audit_OIL_Status == 'Open' else 'review' if r.Operator_Response_Note else 'closed' }}">
+            <h3>Repair ID: {{ r.Repair_ID }} | ATA: {{ r.ATA_Chapter }}</h3>
+            <p><strong>Status:</strong> 
+                <span style="font-weight: bold; color: 
+                    {% if r.Audit_OIL_Status == 'Open' %}#d32f2f
+                    {% elif r.Audit_OIL_Status == 'Closed' %}#388e3c
+                    {% else %}#f57c00{% endif %}">
+                    {{ r.Audit_OIL_Status }}
+                </span>
+            </p>
+
+            <!-- INITIAL FINDING (Auditor) -->
+            <div class="section">
+                <strong>Auditor Finding:</strong><br>
+                {{ r.OIL_Closure_Note or 'No initial note.' }}
+            </div>
+
+            <!-- OPERATOR RESPONSE -->
+            {% if r.Operator_Response_Note %}
+            <div class="section" style="background: #e8f5e9;">
+                <strong>Operator Response:</strong><br>
+                {{ r.Operator_Response_Note }}
+                {% if r.Doc_Evidence_Path %}
+                <br><a href="/api/documents/download/{{ msn }}/{{ r.Doc_Evidence_Path }}" class="evidence" target="_blank">View Evidence</a>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="section" style="background: #fff3e0; color: #e65100;">
+                <strong>Pending Operator Response</strong>
+            </div>
+            {% endif %}
+
+            <!-- AUDITOR ACTION (only if response exists) -->
+            {% if r.Operator_Response_Note and r.Audit_OIL_Status != 'Closed' %}
+            <form action="/api/oil/audit/{{ msn }}/{{ r.Repair_ID }}" method="POST" enctype="multipart/form-data">
+                <label><strong>Your Action:</strong></label>
+                <textarea name="audit_note" placeholder="Add clarification, request more info, or approve closure..." required></textarea>
+
+                <label><strong>Attach Supporting Document (optional):</strong></label>
+                <input type="file" name="audit_doc" accept=".pdf,.jpg,.png,.docx">
+
+                <div>
+                    <button type="submit" name="action" value="request_more">Request More Info</button>
+                    <button type="submit" name="action" value="close" class="close">Close OIL</button>
+                </div>
+            </form>
+            {% elif r.Audit_OIL_Status == 'Closed' %}
+            <p style="color: #388e3c; font-weight: bold;">OIL Closed by Auditor</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <p style="text-align: center; color: #388e3c; font-weight: bold; font-size: 18px;">
+            No OIL items pending audit. All repairs are compliant!
+        </p>
+        {% endfor %}
+    </div>
+</body>
+</html>
