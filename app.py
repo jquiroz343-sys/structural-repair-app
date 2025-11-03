@@ -1,5 +1,5 @@
-# --- app.py (COMPLETO - 100% FUNCIONAL) ---
-from flask import Flask, render_template, jsonify, request, redirect, url_for, make_response, session
+# --- app.py (COMPLETO - SIN ERRORES - CON OIL Y BACK) ---
+from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory, make_response, session
 import data_manager
 import audit_log
 import os
@@ -37,7 +37,7 @@ def validate_repair_data(record_data):
         return False, "Date Completed must be YYYY-MM-DD."
     return True, None
 
-# --- API REPARACIONES ---
+# --- API ---
 @app.route('/api/projects/create', methods=['POST'])
 def create_project_api():
     project_data = request.json
@@ -47,7 +47,7 @@ def create_project_api():
     project_data['Aircraft_Type'] = project_data.get('Aircraft_Type', 'N/A')
     success, message = data_manager.create_new_project(msn, project_data)
     if success:
-        audit_log.log_event(msn, "PROJECT", "CREATE", {'role': 'SETUP', 'ip': request.remote_addr}, project_data)
+        audit_log.log_event(msn, "PROJECT", "CREATE", {'role': 'SETUP'}, project_data)
     return jsonify({"success": success, "message": message})
 
 @app.route('/api/repairs/<msn>', methods=['GET'])
@@ -175,7 +175,7 @@ def dashboard(msn):
         oil_open=oil_open, oil_closed=oil_closed, non_conforming=non_conforming
     )
 
-@app.route('/edit/<msn>/<repair_id>', methods  methods=['GET'])
+@app.route('/edit/<msn>/<repair_id>', methods=['GET'])
 def edit_repair_web(msn, repair_id):
     repair = data_manager.get_repair_record_by_id(msn, repair_id) if repair_id != 'NEW' else {}
     return render_template('edit_repair.html', msn=msn, repair=repair, repair_id=repair_id)
@@ -185,7 +185,7 @@ def view_repairs_web(msn):
     repairs = data_manager.get_all_repairs(msn)
     return render_template('view_repairs.html', msn=msn, repairs=repairs)
 
-# --- OIL CONTROL UNIFICADO ---
+# --- OIL CONTROL ---
 @app.route('/oil/<msn>')
 def oil_control(msn):
     if 'role' not in session or session.get('msn') != msn:
