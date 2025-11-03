@@ -4,56 +4,93 @@
     <meta charset="UTF-8">
     <title>Dashboard - {{ msn }}</title>
     <style>
-        body { font-family: Arial; margin: 0; background: #f4f6f9; }
+        body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; }
         .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
         .container { padding: 20px; max-width: 1100px; margin: auto; }
-        .oil-box { background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; font-size: 18px; }
+        .oil-box { background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 25px; font-size: 18px; text-align: center; }
         .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 25px 0; }
-        .menu-btn { background: #1976d2; color: white; padding: 18px; text-align: center; border-radius: 8px; text-decoration: none; font-weight: bold; }
+        .menu-btn { background: #1976d2; color: white; padding: 18px; text-align: center; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; }
         .menu-btn:hover { background: #1565c0; }
+        .export-btn { background: #28a745 !important; }
+        .export-btn:hover { background: #218838 !important; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
         th { background: #1e40af; color: white; }
+        .logout { position: absolute; top: 20px; right: 20px; color: white; text-decoration: none; font-size: 14px; }
+        .logout:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Structural Repair Log</h1>
         <p>Aircraft: <strong>{{ msn }}</strong> | Role: <strong>{{ role|title }}</strong></p>
+        <a href="/" class="logout">Logout</a>
     </div>
+
     <div class="container">
+        <!-- OIL PROGRESS -->
         <div class="oil-box">
-            <h3>OIL Progress</h3>
-            <p><strong>Open:</strong> {{ oil_open }} | <strong>Closed:</strong> {{ oil_closed }} | <strong>Non-Conforming:</strong> {{ non_conforming }}</strong></p>
+            <h3>OIL & Physical Inspection Progress</h3>
+            <p>
+                <strong>Open OIL:</strong> {{ oil_open }} | 
+                <strong>Closed OIL:</strong> {{ oil_closed }} | 
+                <strong>Non-Conforming:</strong> {{ non_conforming }}
+            </p>
+            <p><strong>Progress:</strong> {{ "%.1f"|format((oil_closed / (oil_open + oil_closed) * 100) if (oil_open + oil_closed) > 0 else 0) }}%</p>
         </div>
 
+        <!-- MENÚ POR ROL -->
         <div class="menu">
             {% if role == 'operator' %}
                 <a href="/edit/{{ msn }}/NEW" class="menu-btn">1. Create / Edit Repair</a>
                 <a href="/oil_response/{{ msn }}" class="menu-btn">2. OIL Response</a>
-                <a href="/api/export/status_report/{{ msn }}" class="menu-btn">3. Reports</a>
+                <a href="/api/export/all/{{ msn }}" class="menu-btn export-btn">Export All to Excel</a>
             {% elif role in ['auditor', 'lessor'] %}
                 <a href="/view/{{ msn }}" class="menu-btn">1. Review Repairs</a>
                 <a href="/oil_audit/{{ msn }}" class="menu-btn">2. OIL Audit</a>
                 <a href="/physical_audit/{{ msn }}" class="menu-btn">3. Physical Audit</a>
                 <a href="/signed_reports/{{ msn }}" class="menu-btn">4. Signed OIL Reports</a>
+                <a href="/api/export/all/{{ msn }}" class="menu-btn export-btn">Export All to Excel</a>
             {% endif %}
         </div>
 
+        <!-- TABLA DE REPARACIONES -->
         <h3>Current Repairs</h3>
         <table>
-            <tr><th>ID</th><th>ATA</th><th>Status</th><th>OIL</th><th>Action</th></tr>
-            {% for r in repairs %}
-            <tr>
-                <td>{{ r.Repair_ID }}</td>
-                <td>{{ r.ATA_Chapter }}</td>
-                <td>{{ r.Repair_Status }}</td>
-                <td>{{ r.Audit_OIL_Status }}</td>
-                <td><a href="/edit/{{ msn }}/{{ r.Repair_ID }}">Edit</a></td>
-            </tr>
-            {% else %}
-            <tr><td colspan="5">No repairs recorded yet.</td></tr>
-            {% endfor %}
+            <thead>
+                <tr>
+                    <th>Repair ID</th>
+                    <th>ATA Chapter</th>
+                    <th>Status</th>
+                    <th>OIL Status</th>
+                    <th>Physical</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in repairs %}
+                <tr>
+                    <td>{{ r.Repair_ID }}</td>
+                    <td>{{ r.ATA_Chapter or 'N/A' }}</td>
+                    <td>{{ r.Repair_Status or 'N/A' }}</td>
+                    <td style="color: {% if r.Audit_OIL_Status == 'Open' %}#d32f2f{% elif r.Audit_OIL_Status == 'Closed' %}#388e3c{% else %}#f57c00{% endif %}; font-weight: bold;">
+                        {{ r.Audit_OIL_Status or 'N/A' }}
+                    </td>
+                    <td style="color: {% if r.Audit_Physical_Status == 'Non-Conforming' %}#d32f2f{% else %}#388e3c{% endif %};">
+                        {{ r.Audit_Physical_Status or 'N/A' }}
+                    </td>
+                    <td>
+                        <a href="/edit/{{ msn }}/{{ r.Repair_ID }}" style="color: #1976d2; text-decoration: none;">Edit</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999; padding: 20px;">
+                        No repairs recorded yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 </body>
