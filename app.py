@@ -9,6 +9,8 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 import io
 import tempfile
+import pandas as pd
+pd.set_option('mode.chained_assignment', None)  # Evita warnings
 
 app = Flask(__name__)
 app.secret_key = 'structural_repair_2025_secure_key'
@@ -329,6 +331,7 @@ def export_all_to_excel(msn):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
