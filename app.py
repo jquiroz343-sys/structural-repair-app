@@ -226,8 +226,48 @@ def oil_audit_action(msn, repair_id):
         audit_log.log_event(msn, repair_id, f"OIL_AUDIT_{action.upper()}", {'role': session['role']}, {"note": note})
     
     return redirect(url_for('oil_audit', msn=msn))
+    # --- PHYSICAL AUDIT PAGE ---
+@app.route('/physical_audit/<msn>')
+def physical_audit(msn):
+    if session.get('role') not in ['auditor', 'lessor']:
+        return redirect(url_for('dashboard', msn=msn))
+    
+    repairs = data_manager.get_all_repairs(msn)
+    # Mostrar solo reparaciones con foto post-reparación
+    physical_items = [r for r in repairs if r.get('Doc_Photo_Post') and r.get('Audit_Physical_Status') != 'Conforming']
+    return render_template('physical_audit.html', msn=msn, physical_items=physical_items, role=session['role'])
+
+# --- API: PHYSICAL AUDIT ACTION ---
+@app.route('/api/physical/audit/<msn>/<repair_id>', methods=['POST'])
+def physical_audit_action(msn, repair_id):
+    if session.get('role') not in ['auditor', 'lessor']:
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    
+    action = request.form.get('action')
+    note = request.form.get('physical_note')
+    file = request.files.get('inspection_photo')
+    
+    update_data = {
+        "Audit_Physical_Note": note,
+        "Audit_Physical_Status": "Non-Conforming" if action == "non_conforming" else "Conforming"
+    }
+    
+    if file and allowed_file(file.filename):
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        filename = f"{repair_id}_inspection.{ext}"
+        path = os.path.join(data_manager.BASE_DIR, msn, 'docs', filename)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        file.save(path)
+        update_data["Doc_Inspection_Photo"] = filename
+    
+    success, msg = data_manager.update_repair_record(msn, repair_id, update_data)
+    if success:
+        audit_log.log_event(msn, repair_id, f"PHYSICAL_AUDIT_{action.upper()}", {'role': session['role']}, {"note": note})
+    
+    return redirect(url_for('physical_audit', msn=msn))
 # --- ARRANQUE ---
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
