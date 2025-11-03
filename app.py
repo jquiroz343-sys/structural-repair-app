@@ -7,9 +7,10 @@ import re
 import csv 
 from werkzeug.utils import secure_filename
 from datetime import datetime
-import io
 import tempfile
-import pandas as pd
+import io
+import zipfile
+from io import StringIO
 pd.set_option('mode.chained_assignment', None)  # Evita warnings
 
 app = Flask(__name__)
@@ -281,8 +282,58 @@ def signed_reports(msn):
 import pandas as pd
 from io import BytesIO
 
+import zipfile
+from io import StringIO
+
 @app.route('/api/export/all/<msn>', methods=['GET'])
-def export_all_to_excel(msn):
+def export_all_to_zip(msn):
+    repairs = data_manager.get_all_repairs(msn)
+    audit_logs = audit_log.get_audit_trail(msn)
+    
+    # OIL Summary
+    oil_open = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Open'])
+    oil_closed = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Closed'])
+    non_conforming = len([r for r in repairs if r.get('Audit_Physical_Status') == 'Non-Conforming'])
+    total = len(repairs)
+    progress = round((oil_closed / total * 100), 1) if total > 0 else 0
+
+    # Crear ZIP en memoria
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        
+        # 1. Repairs.csv
+        if repairs:
+            output = StringIO()
+            writer = csv.DictWriter(output, fieldnames=data_manager.COLUMNS)
+            writer.writeheader()
+            writer.writerows(repairs)
+            zf.writestr(f'{msn}_Repairs.csv', output.getvalue())
+        
+        # 2. OIL_Summary.csv
+        summary = StringIO()
+        summary.write("Metric,Value\n")
+        summary.write(f"Total Repairs,{total}\n")
+        summary.write(f"OIL Open,{oil_open}\n")
+        summary.write(f"OIL Closed,{oil_closed}\n")
+        summary.write(f"Progress %,{progress}\n")
+        summary.write(f"Physical Non-Conforming,{non_conforming}\n")
+        zf.writestr(f'{msn}_OIL_Summary.csv', summary.getvalue())
+        
+        # 3. Audit_Trail.csv
+        if audit_logs:
+            audit_output = StringIO()
+            if audit_logs:
+                keys = audit_logs[0].keys()
+                writer = csv.DictWriter(audit_output, fieldnames=keys)
+                writer.writeheader()
+                writer.writerows(audit_logs)
+                zf.writestr(f'{msn}_Audit_Trail.csv', audit_output.getvalue())
+    
+    memory_file.seek(0)
+    response = make_response(memory_file.getvalue())
+    response.headers["Content-Disposition"] = f"attachment; filename={msn}_Complete_Export_{datetime.now().strftime('%Y%m%d')}.zip"
+    response.headers["Content-Type"] = "application/zip"
+    return response
     # Obtener datos
     repairs = data_manager.get_all_repairs(msn)
     audit_logs = audit_log.get_audit_trail(msn)
@@ -331,6 +382,7 @@ def export_all_to_excel(msn):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
