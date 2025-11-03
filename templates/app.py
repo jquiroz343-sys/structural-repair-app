@@ -10,11 +10,12 @@ from datetime import datetime
 import io
 import zipfile
 from io import StringIO
+import tempfile
 
 app = Flask(__name__)
 app.secret_key = 'structural_repair_2025_secure_key'
 
-# --- CONFIGURACIÓN PARA RENDER ---
+# --- CONFIGURACIÓN ---
 BASE_DIR = tempfile.gettempdir()
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -84,18 +85,7 @@ def update_repair(msn, repair_id):
         audit_log.log_event(msn, repair_id, "UPDATE", {'role': 'OPERATOR', 'ip': request.remote_addr}, update_data)
     return jsonify({"success": success, "message": message})
 
-@app.route('/api/report/oil_summary/<msn>', methods=['GET'])
-def oil_summary(msn):
-    repairs = data_manager.get_all_repairs(msn)
-    open_oil = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Open'])
-    closed_oil = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Closed'])
-    non_conf = len([r for r in repairs if r.get('Audit_Physical_Status') == 'Non-Conforming'])
-    return jsonify({
-        "open": open_oil, "closed": closed_oil, "non_conforming": non_conf,
-        "progress": round((closed_oil / len(repairs) * 100), 1) if repairs else 0
-    })
-
-# --- EXPORTAR TODO EN ZIP (3 CSV) ---
+# --- EXPORTAR TODO EN ZIP ---
 @app.route('/api/export/all/<msn>', methods=['GET'])
 def export_all_to_zip(msn):
     repairs = data_manager.get_all_repairs(msn)
@@ -109,7 +99,6 @@ def export_all_to_zip(msn):
 
     memory_file = io.BytesIO()
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # 1. Repairs.csv
         if repairs:
             output = StringIO()
             writer = csv.DictWriter(output, fieldnames=data_manager.COLUMNS)
@@ -117,7 +106,6 @@ def export_all_to_zip(msn):
             writer.writerows(repairs)
             zf.writestr(f'{msn}_Repairs.csv', output.getvalue())
         
-        # 2. OIL_Summary.csv
         summary = StringIO()
         summary.write("Metric,Value\n")
         summary.write(f"Total Repairs,{total}\n")
@@ -127,7 +115,6 @@ def export_all_to_zip(msn):
         summary.write(f"Physical Non-Conforming,{non_conforming}\n")
         zf.writestr(f'{msn}_OIL_Summary.csv', summary.getvalue())
         
-        # 3. Audit_Trail.csv
         if audit_logs:
             audit_output = StringIO()
             keys = audit_logs[0].keys() if audit_logs else []
@@ -157,7 +144,6 @@ def project_select_page():
     projects = data_manager.get_all_projects()
     return render_template('project_select.html', projects=projects)
 
-# --- SELECCIÓN DE ROL ---
 @app.route('/role_select/<msn>', methods=['GET', 'POST'])
 def role_select_web(msn):
     if request.method == 'POST':
@@ -168,7 +154,6 @@ def role_select_web(msn):
             return redirect(url_for('dashboard', msn=msn))
     return render_template('role_select.html', msn=msn)
 
-# --- DASHBOARD ---
 @app.route('/dashboard/<msn>')
 def dashboard(msn):
     if 'role' not in session or session.get('msn') != msn:
@@ -200,11 +185,7 @@ def view_repairs_web(msn):
     repairs = data_manager.get_all_repairs(msn)
     return render_template('view_repairs.html', msn=msn, repairs=repairs)
 
-@app.route('/audit/<msn>')
-def audit_dashboard_web(msn):
-    return render_template('audit.html', msn=msn)
-
-# --- MÓDULOS POR ROL ---
+# --- MÓDULOS ---
 @app.route('/oil_response/<msn>')
 def oil_response(msn):
     if session.get('role') != 'operator':
