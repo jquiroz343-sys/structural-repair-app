@@ -107,6 +107,41 @@ def download_pdf(repair_id):
             return send_file(pdf_path, as_attachment=True, download_name=f'SRF_{repair_id}.pdf')
     flash("Only Lessor can download PDFs")
     return redirect(url_for('dashboard'))
+@app.route('/oil_response/<msn>')
+def oil_response(msn):
+    if session.get('role') != 'operator':
+        return redirect(url_for('dashboard', msn=msn))
+    
+    repairs = data_manager.get_all_repairs(msn)
+    open_repairs = [r for r in repairs if r.get('Audit_OIL_Status') == 'Open']
+    closed_repairs = [r for r in repairs if r.get('Audit_OIL_Status') == 'Closed']
+    
+    return render_template('oil_response.html', msn=msn, open_repairs=open_repairs, closed_repairs=closed_repairs)
 
+# --- RUTA PARA GUARDAR RESPUESTA ---
+@app.route('/api/oil/respond/<msn>/<repair_id>', methods=['POST'])
+def oil_respond(msn, repair_id):
+    if session.get('role') != 'operator':
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    
+    response = request.form.get('response')
+    file = request.files.get('evidence')
+    
+    update_data = {"Operator_Response_Note": response}
+    
+    if file and allowed_file(file.filename):
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        filename = f"{repair_id}_evidence.{ext}"
+        path = os.path.join(data_manager.BASE_DIR, msn, 'docs', filename)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        file.save(path)
+        update_data["Doc_Evidence_Path"] = filename
+    
+    success, msg = data_manager.update_repair_record(msn, repair_id, update_data)
+    if success:
+        audit_log.log_event(msn, repair_id, "OIL_RESPONSE", {'role': 'OPERATOR'}, {"response": response})
+    
+    return redirect(url_for('oil_response', msn=msn))
 if __name__ == '__main__':
+
     app.run(host='0.0.0.0', port=port, debug=False)
