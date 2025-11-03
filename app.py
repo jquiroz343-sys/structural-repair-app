@@ -275,10 +275,61 @@ def signed_reports(msn):
     closed_oil = [r for r in repairs if r.get('Audit_OIL_Status') == 'Closed']
     
     return render_template('signed_reports.html', msn=msn, closed_oil=closed_oil, role=session['role'])
+    # --- IMPORTS PARA EXCEL ---
+import pandas as pd
+from io import BytesIO
+
+@app.route('/api/export/all/<msn>', methods=['GET'])
+def export_all_to_excel(msn):
+    # Obtener datos
+    repairs = data_manager.get_all_repairs(msn)
+    audit_logs = audit_log.get_audit_trail(msn)
+    
+    # OIL Summary
+    oil_open = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Open'])
+    oil_closed = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Closed'])
+    non_conforming = len([r for r in repairs if r.get('Audit_Physical_Status') == 'Non-Conforming'])
+    oil_data = {
+        'Total Repairs': [len(repairs)],
+        'OIL Open': [oil_open],
+        'OIL Closed': [oil_closed],
+        'Progress %': [round((oil_closed / len(repairs) * 100), 1) if repairs else 0],
+        'Physical Non-Conforming': [non_conforming]
+    }
+    oil_df = pd.DataFrame(oil_data)
+
+    # Audit Trail
+    audit_df = pd.DataFrame(audit_logs)
+
+    # Crear Excel
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Hoja 1: Repairs (55 campos)
+        if repairs:
+            repairs_df = pd.DataFrame(repairs)
+            repairs_df.to_excel(writer, sheet_name='Repairs', index=False)
+        else:
+            pd.DataFrame().to_excel(writer, sheet_name='Repairs', index=False)
+        
+        # Hoja 2: OIL Summary
+        oil_df.to_excel(writer, sheet_name='OIL_Summary', index=False)
+        
+        # Hoja 3: Audit Trail
+        if audit_logs:
+            audit_df.to_excel(writer, sheet_name='Audit_Trail', index=False)
+        else:
+            pd.DataFrame().to_excel(writer, sheet_name='Audit_Trail', index=False)
+
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers["Content-Disposition"] = f"attachment; filename={msn}_Complete_Export_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return response
 # --- ARRANQUE ---
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
 
