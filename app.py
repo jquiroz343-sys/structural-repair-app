@@ -185,8 +185,49 @@ def physical_audit(msn):
 @app.route('/signed_reports/<msn>')
 def signed_reports(msn):
     return render_template('signed_reports.html', msn=msn)
+# --- OIL AUDIT PAGE ---
+@app.route('/oil_audit/<msn>')
+def oil_audit(msn):
+    if session.get('role') not in ['auditor', 'lessor']:
+        return redirect(url_for('dashboard', msn=msn))
+    
+    repairs = data_manager.get_all_repairs(msn)
+    oil_items = [r for r in repairs if r.get('Audit_OIL_Status') in ['Open', 'In Review']]
+    return render_template('oil_audit.html', msn=msn, oil_items=oil_items, role=session['role'])
 
+# --- API: AUDITOR ACTION ON OIL ---
+@app.route('/api/oil/audit/<msn>/<repair_id>', methods=['POST'])
+def oil_audit_action(msn, repair_id):
+    if session.get('role') not in ['auditor', 'lessor']:
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    
+    action = request.form.get('action')
+    note = request.form.get('audit_note')
+    file = request.files.get('audit_doc')
+    
+    update_data = {}
+    if action == 'request_more':
+        update_data['Audit_OIL_Status'] = 'Open'
+        update_data['OIL_Closure_Note'] = (update_data.get('OIL_Closure_Note', '') + f"\n[Auditor Request {datetime.now().strftime('%Y-%m-%d')}]: {note}").strip()
+    elif action == 'close':
+        update_data['Audit_OIL_Status'] = 'Closed'
+        update_data['OIL_Closure_Note'] = (update_data.get('OIL_Closure_Note', '') + f"\n[Closed {datetime.now().strftime('%Y-%m-%d')}]: {note}").strip()
+    
+    if file and allowed_file(file.filename):
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        filename = f"{repair_id}_audit_doc.{ext}"
+        path = os.path.join(data_manager.BASE_DIR, msn, 'docs', filename)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        file.save(path)
+        update_data["Doc_Audit_Path"] = filename
+    
+    success, msg = data_manager.update_repair_record(msn, repair_id, update_data)
+    if success:
+        audit_log.log_event(msn, repair_id, f"OIL_AUDIT_{action.upper()}", {'role': session['role']}, {"note": note})
+    
+    return redirect(url_for('oil_audit', msn=msn))
 # --- ARRANQUE ---
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
