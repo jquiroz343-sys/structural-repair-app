@@ -18,7 +18,8 @@
         button.close { background: #388e3c; }
         button.close:hover { background: #2e7d32; }
         .back { display: inline-block; margin: 20px 0; color: #1e40af; text-decoration: none; font-weight: bold; }
-        .photo { max-width: 100%; border-radius: 5px; margin: 10px 0; }
+        .photo { max-width: 300px; border-radius: 5px; margin: 10px 0; }
+        .ndt { color: #f57c00; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -31,57 +32,65 @@
 
         <h2>Physical Inspection Items</h2>
 
-        {% for r in physical_items %}
-        <div class="audit-card {{ 'non-conforming' if r.Audit_Physical_Status == 'Non-Conforming' else 'conforming' }}">
-            <h3>Repair ID: {{ r.Repair_ID }} | ATA: {{ r.ATA_Chapter }}</h3>
-            <p><strong>Current Status:</strong> 
-                <span style="font-weight: bold; color: 
-                    {% if r.Audit_Physical_Status == 'Non-Conforming' %}#d32f2f{% else %}#388e3c{% endif %}">
-                    {{ r.Audit_Physical_Status }}
-                </span>
-            </p>
+        {% if physical_items %}
+            {% for r in physical_items %}
+            <div class="audit-card {{ 'non-conforming' if r.Audit_Physical_Status == 'Non-Conforming' else 'conforming' }}">
+                <h3>Repair ID: {{ r.Repair_ID }} | ATA: {{ r.ATA_Chapter }}</h3>
+                <p><strong>NDT Performed:</strong> <span class="ndt">{{ r.NDT_Required_Performed or 'N/A' }}</span></p>
+                <p><strong>Current Status:</strong> 
+                    <span style="color: {% if r.Audit_Physical_Status == 'Non-Conforming' %}#d32f2f{% else %}#388e3c{% endif %}; font-weight: bold;">
+                        {{ r.Audit_Physical_Status or 'Pending' }}
+                    </span>
+                </p>
 
-            <!-- EXISTING PHYSICAL NOTE -->
-            {% if r.Audit_Physical_Note %}
-            <div class="section">
-                <strong>Previous Finding:</strong><br>
-                {{ r.Audit_Physical_Note }}
-            </div>
-            {% endif %}
-
-            <!-- PHOTOS FROM OPERATOR -->
-            {% if r.Doc_Photo_Post %}
-            <div class="section">
-                <strong>Operator Photo (Post-Repair):</strong><br>
-                <a href="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" target="_blank">
-                    <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" class="photo" alt="Post-Repair Photo">
-                </a>
-            </div>
-            {% endif %}
-
-            <!-- AUDITOR ACTION -->
-            {% if r.Audit_Physical_Status != 'Conforming' %}
-            <form action="/api/physical/audit/{{ msn }}/{{ r.Repair_ID }}" method="POST" enctype="multipart/form-data">
-                <label><strong>Your Observation:</strong></label>
-                <textarea name="physical_note" placeholder="Describe physical non-conformance or verification..." required></textarea>
-
-                <label><strong>Upload Inspection Photo:</strong></label>
-                <input type="file" name="inspection_photo" accept=".jpg,.jpeg,.png" required>
-
-                <div>
-                    <button type="submit" name="action" value="non_conforming">Mark Non-Conforming</button>
-                    <button type="submit" name="action" value="conforming" class="close">Mark Conforming</button>
+                <div class="section">
+                    <strong>Physical Measurements:</strong><br>
+                    Length/Width: {{ r.Dim_Length_Width or 'N/A' }} mm | 
+                    Depth: {{ r.Dim_Depth or 'N/A' }} mm | 
+                    Remaining Thickness: {{ r.Dim_Remaining_Thk or 'N/A' }} mm
                 </div>
-            </form>
-            {% else %}
-            <p style="color: #388e3c; font-weight: bold;">Physical audit closed.</p>
-            {% endif %}
-        </div>
+
+                {% if r.Doc_Photo_Pre %}
+                <div class="section">
+                    <strong>Pre-Repair Photo:</strong><br>
+                    <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Pre }}" class="photo" alt="Pre-Repair">
+                </div>
+                {% endif %}
+                {% if r.Doc_Photo_Post %}
+                <div class="section">
+                    <strong>Post-Repair Photo:</strong><br>
+                    <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" class="photo" alt="Post-Repair">
+                </div>
+                {% endif %}
+
+                {% if r.Audit_Physical_Status != 'Conforming' %}
+                <form action="/api/physical/audit/{{ msn }}/{{ r.Repair_ID }}" method="POST" enctype="multipart/form-data">
+                    <label><strong>Your Physical Observation (required):</strong></label>
+                    <textarea name="physical_note" placeholder="Describe verification, reference SRM/NDT..." required></textarea>
+
+                    <label><strong>Upload Inspection Photo (required):</strong></label>
+                    <input type="file" name="inspection_photo" accept=".jpg,.jpeg,.png" required>
+
+                    <label><strong>NDT Method Used:</strong></label>
+                    <input type="text" name="ndt_method" placeholder="e.g., Ultrasonic" value="{{ r.NDT_Required_Performed or '' }}">
+
+                    <div>
+                        <button type="submit" name="action" value="non_conforming">Mark Non-Conforming (Generate OIL)</button>
+                        <button type="submit" name="action" value="conforming" class="close">Mark Conforming</button>
+                    </div>
+                </form>
+                {% else %}
+                <div style="color: #388e3c; font-weight: bold;">
+                    Physical audit closed - Compliant.
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
         {% else %}
-        <p style="text-align: center; color: #388e3c; font-weight: bold; font-size: 18px;">
-            No physical audit items pending. All repairs are physically conforming!
-        </p>
-        {% endfor %}
+        <div style="text-align: center; color: #388e3c; font-weight: bold; font-size: 18px; padding: 40px;">
+            No physical audit items pending.
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>
