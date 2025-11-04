@@ -1,4 +1,4 @@
-# app.py - VERSIÓN FINAL 100% FUNCIONAL
+# app.py - FINAL REENGINEERED VERSION (IATA-STYLE)
 from flask import Flask, render_template, jsonify, request, redirect, url_for, make_response, session, send_from_directory
 import data_manager
 import audit_log
@@ -6,7 +6,7 @@ import os
 import re
 import csv
 from werkzeug.utils import secure_filename
-from datetime import datetime, timedelta
+from datetime import datetime
 import io
 import zipfile
 from io import StringIO
@@ -15,7 +15,7 @@ import tempfile
 app = Flask(__name__)
 app.secret_key = 'structural_repair_2025_secure_key'
 
-# --- FILTRO STRPTIME (SOLUCIONA ERROR) ---
+# --- JINJA FILTER: STRPTIME ---
 from datetime import datetime
 @app.template_filter('strptime')
 def _jinja2_filter_strptime(date_string, fmt='%Y-%m-%d'):
@@ -24,7 +24,7 @@ def _jinja2_filter_strptime(date_string, fmt='%Y-%m-%d'):
     except:
         return datetime.now()
 
-# --- CONFIGURACIÓN DE UPLOADS ---
+# --- UPLOAD CONFIG ---
 BASE_DIR = tempfile.gettempdir()
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -35,7 +35,7 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'dwg', 'dxf', 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# --- VALIDACIÓN DE DATOS ---
+# --- DATA VALIDATION ---
 def validate_repair_data(record_data):
     if not record_data.get('Repair_ID'):
         return False, "Repair ID is mandatory."
@@ -98,7 +98,7 @@ def update_repair(msn, repair_id):
         audit_log.log_event(msn, repair_id, "UPDATE", {'role': 'OPERATOR'}, update_data)
     return jsonify({"success": success, "message": message})
 
-# --- EXPORTAR TODO EN ZIP ---
+# --- EXPORT ALL ---
 @app.route('/api/export/all/<msn>', methods=['GET'])
 def export_all_to_zip(msn):
     repairs = data_manager.get_all_repairs(msn)
@@ -145,7 +145,7 @@ def export_all_to_zip(msn):
     return response
 
 # =============================
-# RUTAS WEB
+# WEB ROUTES
 # =============================
 
 @app.route('/')
@@ -205,7 +205,7 @@ def view_repairs_web(msn):
     return render_template('view_repairs.html', msn=msn, repairs=repairs)
 
 # =============================
-# OIL CONTROL
+# OIL CONTROL (REENGINEERED)
 # =============================
 
 @app.route('/oil/<msn>')
@@ -214,54 +214,48 @@ def oil_control(msn):
         return redirect(url_for('role_select_web', msn=msn))
     
     repairs = data_manager.get_all_repairs(msn)
-    oil_items = []
+    oil_items = [r for r in repairs if r.get('OIL_ID')]  # Solo con OIL_ID
+    all_repairs = [r for r in repairs if not r.get('OIL_ID')]  # Sin OIL
     today = datetime.now().date()
     
-    for r in repairs:
-        if r.get('OIL_ID'):
-            r['today'] = today
-            oil_items.append(r)
-        elif r.get('Audit_OIL_Status') == 'Open' or r.get('Audit_Physical_Status') == 'Non-Conforming':
-            oil_type = 'Documental' if r.get('Audit_OIL_Status') == 'Open' else 'Física'
-            data_manager.create_oil_item(msn, r['Repair_ID'], oil_type)
-            r = data_manager.get_repair_record_by_id(msn, r['Repair_ID'])
-            r['today'] = today
-            oil_items.append(r)
-    
-    return render_template('oil.html', msn=msn, oil_items=oil_items, all_repairs=repairs, role=session['role'], today=today)
+    return render_template(
+        'oil.html',
+        msn=msn,
+        oil_items=oil_items,
+        all_repairs=all_repairs,
+        role=session['role'],
+        today=today
+    )
 
-# --- CREAR DISCREPANCIA (AUDITOR O LESSOR) ---
 @app.route('/api/oil/add/<msn>', methods=['POST'])
 def oil_add_discrepancy(msn):
     if session.get('role') not in ['auditor', 'lessor']:
         return "Forbidden: Only Auditor or Lessor", 403
-    repair_id = request.form['repair_id']
-    oil_type = request.form['oil_type']
-    audit_note = request.form['audit_note']
-    file = request.files.get('audit_file')
     
+    repair_id = request.form['repair_id']
+    oil_type = request.form['oil_type']  # "Physical" or "Documentary"
+    audit_note = request.form['audit_note']
+    file = request.files.get('audit_file')  # OPCIONAL
+
     repair = data_manager.get_repair_record_by_id(msn, repair_id)
     if not repair or repair.get('OIL_ID'):
-        return "Invalid or already has OIL", 400
+        return "Repair already has OIL", 400
 
     data_manager.create_oil_item(msn, repair_id, oil_type)
-    repair = data_manager.get_repair_record_by_id(msn, repair_id)
 
+    update = {"OIL_Audit_Note": audit_note}
     if file and allowed_file(file.filename):
         ext = file.filename.rsplit('.', 1)[1].lower()
         filename = f"{repair_id}_audit_evidence.{ext}"
         path = os.path.join(app.config['UPLOAD_FOLDER'], msn, filename)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         file.save(path)
-        update = {"Doc_Audit_File": filename, "OIL_Audit_Note": audit_note}
-    else:
-        update = {"OIL_Audit_Note": audit_note}
+        update["Doc_Audit_File"] = filename
 
     data_manager.update_repair_record(msn, repair_id, update)
-    audit_log.log_event(msn, repair_id, "OIL_CREATE", session, update)
+    audit_log.log_event(msn, repair_id, "OIL_CREATED", session, update)
     return redirect(url_for('oil_control', msn=msn))
 
-# --- OPERATOR RESPONDE ---
 @app.route('/api/oil/response/<msn>/<repair_id>', methods=['POST'])
 def oil_operator_response(msn, repair_id):
     if session.get('role') != 'operator':
@@ -285,7 +279,6 @@ def oil_operator_response(msn, repair_id):
     audit_log.log_event(msn, repair_id, "OIL_RESPONSE", session, update)
     return redirect(url_for('oil_control', msn=msn))
 
-# --- CERRAR OIL (AUDITOR O LESSOR) ---
 @app.route('/api/oil/close/<msn>/<repair_id>', methods=['POST'])
 def oil_close(msn, repair_id):
     if session.get('role') not in ['auditor', 'lessor']:
@@ -306,7 +299,7 @@ def oil_close(msn, repair_id):
     return redirect(url_for('oil_control', msn=msn))
 
 # =============================
-# PHYSICAL AUDIT
+# PHYSICAL AUDIT (REENGINEERED)
 # =============================
 
 @app.route('/physical_audit/<msn>')
@@ -315,36 +308,43 @@ def physical_audit(msn):
         return redirect(url_for('role_select_web', msn=msn))
     repairs = data_manager.get_all_repairs(msn)
     non_conforming_items = [r for r in repairs if r.get('Audit_Physical_Status') == 'Non-Conforming']
-    return render_template('physical_audit.html', msn=msn, non_conforming_items=non_conforming_items, all_repairs=repairs, role=session['role'])
+    all_repairs = [r for r in repairs if r.get('Audit_Physical_Status') != 'Non-Conforming']
+    return render_template(
+        'physical_audit.html',
+        msn=msn,
+        non_conforming_items=non_conforming_items,
+        all_repairs=all_repairs,
+        role=session['role']
+    )
 
 @app.route('/api/physical/report/<msn>', methods=['POST'])
 def physical_report(msn):
     if session.get('role') not in ['auditor', 'lessor']:
         return "Forbidden: Only Auditor or Lessor", 403
+    
     repair_id = request.form['repair_id']
     audit_note = request.form['audit_note']
-    photo = request.files['photo']
-    
-    if not photo or not allowed_file(photo.filename):
-        return "Photo required", 400
-
-    ext = photo.filename.rsplit('.', 1)[1].lower()
-    filename = f"{repair_id}_physical_audit.{ext}"
-    path = os.path.join(app.config['UPLOAD_FOLDER'], msn, filename)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    photo.save(path)
+    photo = request.files.get('photo')  # OPCIONAL
 
     update = {
         "Audit_Physical_Status": "Non-Conforming",
-        "Audit_Physical_Note": audit_note,
-        "Doc_Photo_Audit": filename
+        "Audit_Physical_Note": audit_note
     }
+
+    if photo and allowed_file(photo.filename):
+        ext = photo.filename.rsplit('.', 1)[1].lower()
+        filename = f"{repair_id}_physical_audit.{ext}"
+        path = os.path.join(app.config['UPLOAD_FOLDER'], msn, filename)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        photo.save(path)
+        update["Doc_Photo_Audit"] = filename
+
     data_manager.update_repair_record(msn, repair_id, update)
-    audit_log.log_event(msn, repair_id, "PHYSICAL_NONCONFORM", session, update)
+    audit_log.log_event(msn, repair_id, "PHYSICAL_REPORTED", session, update)
     return redirect(url_for('physical_audit', msn=msn))
 
 # =============================
-# OTROS
+# OTHER ROUTES
 # =============================
 
 @app.route('/signed_oil_report/<msn>')
@@ -367,7 +367,6 @@ def logout(msn):
     session.pop('msn', None)
     return redirect(url_for('role_select_web', msn=msn))
 
-# --- DESCARGA DE ARCHIVOS ---
 @app.route('/api/documents/download/<msn>/<filename>')
 def download_file(msn, filename):
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], msn, filename)
@@ -376,7 +375,7 @@ def download_file(msn, filename):
     return "File not found", 404
 
 # =============================
-# INICIO
+# RUN APP
 # =============================
 
 if __name__ == '__main__':
