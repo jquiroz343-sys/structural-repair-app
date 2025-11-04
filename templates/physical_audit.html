@@ -6,7 +6,9 @@
     .container { padding: 20px; max-width: 1000px; margin: auto; }
     .audit-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
     .audit-card.non-conforming { border-left: 5px solid #d32f2f; }
-    .photo { max-width: 300px; border-radius: 5px; }
+    .photo { max-width: 300px; border-radius: 5px; margin: 10px 0; }
+    textarea, input, select { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; }
+    button { padding: 10px 20px; background: #d32f2f; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
 </style></head><body>
 
 <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 100;">
@@ -16,13 +18,35 @@
 
 <div class="header"><h1>Physical Audit - {{ msn }}</h1><p>Role: {{ role|title }}</p></div>
 <div class="container">
-    {% if physical_items %}
-        {% for r in physical_items %}
-        <div class="audit-card {{ 'non-conforming' if r.Audit_Physical_Status == 'Non-Conforming' else '' }}">
+
+    <!-- FORMULARIO: REPORTAR NO CONFORMIDAD (AUDITOR O LESSOR) -->
+    {% if role in ['auditor', 'lessor'] %}
+    <div class="audit-card" style="border-left: 6px solid #d32f2f;">
+        <h3>Report Physical Non-Conformance</h3>
+        <form action="/api/physical/report/{{ msn }}" method="POST" enctype="multipart/form-data">
+            <select name="repair_id" required>
+                <option value="">Select Repair</option>
+                {% for r in all_repairs %}
+                {% if r.Audit_Physical_Status != 'Non-Conforming' %}
+                <option value="{{ r.Repair_ID }}">{{ r.Repair_ID }} - {{ r.ATA_Chapter }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            <textarea name="audit_note" required placeholder="Describe the physical issue..."></textarea>
+            <input type="file" name="photo" accept=".jpg,.jpeg,.png" required>
+            <button type="submit">Report Issue</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- LISTA DE NO CONFORMIDADES -->
+    {% if non_conforming_items %}
+        {% for r in non_conforming_items %}
+        <div class="audit-card non-conforming">
             <h3>{{ r.Repair_ID }} | {{ r.ATA_Chapter }}</h3>
-            <p><strong>Status:</strong> {{ r.Audit_Physical_Status }}</p>
-            {% if r.Doc_Photo_Post %}
-            <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" class="photo">
+            <p><strong>Finding:</strong> {{ r.Audit_Physical_Note or 'N/A' }}</p>
+            {% if r.Doc_Photo_Audit %}
+            <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Audit }}" class="photo">
             {% endif %}
         </div>
         {% endfor %}
