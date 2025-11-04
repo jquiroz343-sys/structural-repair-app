@@ -14,12 +14,16 @@
 
 <div class="header"><h1>Signed OIL Report - {{ msn }}</h1></div>
 <div class="container">
-    {% for r in closed_oil %}
-    <div class="report-card">
-        <h3>{{ r.OIL_ID }} | {{ r.Repair_ID }}</h3>
-        <p><strong>Signed by:</strong> {{ r.OIL_Signed_By }} on {{ r.OIL_Signed_Date }}</p>
-        <p><strong>Note:</strong> {{ r.OIL_Closure_Note }}</p>
-    </div>
-    {% endfor %}
+    {% if closed_oil %}
+        {% for r in closed_oil %}
+        <div class="report-card">
+            <h3>{{ r.OIL_ID }} | {{ r.Repair_ID }}</h3>
+            <p><strong>Signed by:</strong> {{ r.OIL_Signed_By }} on {{ r.OIL_Signed_Date }}</p>
+            <p><strong>Note:</strong> {{ r.OIL_Closure_Note }}</p>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="text-align: center; color: #666; padding: 40px;">No closed items.</p>
+    {% endif %}
 </div>
 </body></html>
