@@ -2,28 +2,104 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Select Role</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Role - {{ msn }}</title>
     <style>
-        body { font-family: Arial; text-align: center; margin-top: 100px; background: #f4f6f9; }
-        .card { width: 400px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
-        select, button { width: 100%; padding: 12px; margin: 10px 0; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; }
-        button { background: #1e40af; color: white; font-weight: bold; cursor: pointer; }
-        button:hover { background: #1e3a8a; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 40px 50px;
+            border-radius: 16px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #1e40af;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #555;
+            font-size: 1.1rem;
+        }
+        .role-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 25px 0;
+        }
+        .role-btn {
+            padding: 16px 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .role-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+        }
+        .btn-operator { background: #1976d2; color: white; }
+        .btn-auditor { background: #d32f2f; color: white; }
+        .btn-lessor { background: #388e3c; color: white; }
+
+        .back-btn {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 10px 20px;
+            background: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .back-btn:hover {
+            background: #5a6268;
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 30px 20px; }
+            .header h1 { font-size: 1.5rem; }
+        }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>Select Your Role</h2>
-        <p>Aircraft: <strong>{{ msn }}</strong></p>
+    <div class="container">
+        <div class="header">
+            <h1>Aircraft Structural Repair Log</h1>
+            <p>MSN: <strong>{{ msn }}</strong></p>
+            <p>Select your role to continue</p>
+        </div>
+
         <form method="POST">
-            <select name="role" required>
-                <option value="">-- Choose Role --</option>
-                <option value="operator">Operator</option>
-                <option value="auditor">Auditor</option>
-                <option value="lessor">Lessor</option>
-            </select>
-            <button type="submit">Continue →</button>
+            <div class="role-buttons">
+                <button type="submit" name="role" value="operator" class="role-btn btn-operator">Operator</button>
+                <button type="submit" name="role" value="auditor" class="role-btn btn-auditor">Auditor</button>
+                <button type="submit" name="role" value="lessor" class="role-btn btn-lessor">Lessor</button>
+            </div>
         </form>
+
+        <a href="/project/select" class="back-btn">Back to Project List</a>
     </div>
 </body>
 </html>
