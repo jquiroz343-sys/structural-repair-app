@@ -16,14 +16,18 @@
 
 <div class="header"><h1>Physical Audit - {{ msn }}</h1><p>Role: {{ role|title }}</p></div>
 <div class="container">
-    {% for r in physical_items %}
-    <div class="audit-card {{ 'non-conforming' if r.Audit_Physical_Status == 'Non-Conforming' else '' }}">
-        <h3>{{ r.Repair_ID }} | {{ r.ATA_Chapter }}</h3>
-        <p><strong>Status:</strong> {{ r.Audit_Physical_Status }}</p>
-        {% if r.Doc_Photo_Post %}
-        <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" class="photo">
-        {% endif %}
-    </div>
-    {% endfor %}
+    {% if physical_items %}
+        {% for r in physical_items %}
+        <div class="audit-card {{ 'non-conforming' if r.Audit_Physical_Status == 'Non-Conforming' else '' }}">
+            <h3>{{ r.Repair_ID }} | {{ r.ATA_Chapter }}</h3>
+            <p><strong>Status:</strong> {{ r.Audit_Physical_Status }}</p>
+            {% if r.Doc_Photo_Post %}
+            <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" class="photo">
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="text-align: center; color: #666; padding: 40px;">No non-conforming items.</p>
+    {% endif %}
 </div>
 </body></html>
