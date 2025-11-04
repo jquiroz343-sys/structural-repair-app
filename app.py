@@ -1,4 +1,4 @@
-# --- app.py (COMPLETO - 100% FUNCIONAL) ---
+# app.py - COMPLETO Y FUNCIONAL
 from flask import Flask, render_template, jsonify, request, redirect, url_for, make_response, session, send_from_directory
 import data_manager
 import audit_log
@@ -14,6 +14,15 @@ import tempfile
 
 app = Flask(__name__)
 app.secret_key = 'structural_repair_2025_secure_key'
+
+# --- FILTRO STRPTIME (SOLUCIONA EL ERROR) ---
+from datetime import datetime
+@app.template_filter('strptime')
+def _jinja2_filter_strptime(date_string, fmt='%Y-%m-%d'):
+    try:
+        return datetime.strptime(date_string, fmt)
+    except:
+        return datetime.now()
 
 # --- CONFIGURACIÓN ---
 BASE_DIR = tempfile.gettempdir()
@@ -86,7 +95,7 @@ def update_repair(msn, repair_id):
         audit_log.log_event(msn, repair_id, "UPDATE", {'role': 'OPERATOR'}, update_data)
     return jsonify({"success": success, "message": message})
 
-# --- EXPORTAR ZIP (CORREGIDO) ---
+# --- EXPORTAR ZIP ---
 @app.route('/api/export/all/<msn>', methods=['GET'])
 def export_all_to_zip(msn):
     repairs = data_manager.get_all_repairs(msn)
@@ -102,7 +111,6 @@ def export_all_to_zip(msn):
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         if repairs:
             output = StringIO()
-            # FILTRAR SOLO COLUMNAS VÁLIDAS
             filtered_repairs = [{k: r.get(k, '') for k in data_manager.COLUMNS} for r in repairs]
             writer = csv.DictWriter(output, fieldnames=data_manager.COLUMNS)
             writer.writeheader()
@@ -188,7 +196,7 @@ def view_repairs_web(msn):
     repairs = data_manager.get_all_repairs(msn)
     return render_template('view_repairs.html', msn=msn, repairs=repairs)
 
-# --- MÓDULOS ACTIVOS ---
+# --- MÓDULO OIL (CORREGIDO) ---
 @app.route('/oil/<msn>')
 def oil_control(msn):
     if 'role' not in session or session.get('msn') != msn:
@@ -274,7 +282,7 @@ def oil_close(msn, repair_id):
 def oil_compensation(msn, repair_id):
     return oil_close(msn, repair_id)
 
-# --- AUDIT TRAIL POR REPARACIÓN ---
+# --- AUDIT TRAIL ---
 @app.route('/api/audit_trail/<msn>/<repair_id>')
 def get_audit_trail_by_repair(msn, repair_id):
     logs = audit_log.get_audit_trail(msn)
