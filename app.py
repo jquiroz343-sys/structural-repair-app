@@ -1,5 +1,5 @@
-# --- app.py (COMPLETO - SIN ERRORES - CON OIL Y BACK) ---
-from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory, make_response, session
+# --- app.py (TODOS LOS MÓDULOS ACTIVOS) ---
+from flask import Flask, render_template, jsonify, request, redirect, url_for, make_response, session
 import data_manager
 import audit_log
 import os
@@ -26,6 +26,7 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'dwg', 'dxf', 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# --- VALIDACIÓN ---
 def validate_repair_data(record_data):
     if not record_data.get('Repair_ID'):
         return False, "Repair ID is mandatory."
@@ -92,8 +93,8 @@ def export_all_to_zip(msn):
     audit_logs = audit_log.get_audit_trail(msn)
     
     total = len(repairs)
-    oil_open = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Open'])
-    oil_closed = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Closed'])
+    oil_open = len([r for r in repairs if r.get('OIL_Status') == 'Open'])
+    oil_closed = len([r for r in repairs if r.get('OIL_Status') == 'Closed'])
     non_conforming = len([r for r in repairs if r.get('Audit_Physical_Status') == 'Non-Conforming'])
     progress = round((oil_closed / total * 100), 1) if total > 0 else 0
 
@@ -164,8 +165,8 @@ def dashboard(msn):
         return redirect(url_for('index'))
     
     repairs = data_manager.get_all_repairs(msn)
-    oil_open = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Open'])
-    oil_closed = len([r for r in repairs if r.get('Audit_OIL_Status') == 'Closed'])
+    oil_open = len([r for r in repairs if r.get('OIL_Status') == 'Open'])
+    oil_closed = len([r for r in repairs if r.get('OIL_Status') == 'Closed'])
     non_conforming = len([r for r in repairs if r.get('Audit_Physical_Status') == 'Non-Conforming'])
     
     return render_template(
@@ -185,7 +186,7 @@ def view_repairs_web(msn):
     repairs = data_manager.get_all_repairs(msn)
     return render_template('view_repairs.html', msn=msn, repairs=repairs)
 
-# --- OIL CONTROL ---
+# --- MÓDULOS ACTIVOS ---
 @app.route('/oil/<msn>')
 def oil_control(msn):
     if 'role' not in session or session.get('msn') != msn:
@@ -208,22 +209,36 @@ def oil_control(msn):
     
     return render_template('oil.html', msn=msn, oil_items=oil_items, role=session['role'], today=today)
 
+@app.route('/physical_audit/<msn>')
+def physical_audit(msn):
+    if session.get('role') not in ['auditor', 'lessor']:
+        return redirect(url_for('dashboard', msn=msn))
+    repairs = data_manager.get_all_repairs(msn)
+    physical_items = [r for r in repairs if r.get('Doc_Photo_Post') and r.get('Audit_Physical_Status') != 'Conforming']
+    return render_template('physical_audit.html', msn=msn, physical_items=physical_items, role=session['role'])
+
+@app.route('/signed_oil_report/<msn>')
+def signed_oil_report(msn):
+    if session.get('role') not in ['auditor', 'lessor']:
+        return redirect(url_for('dashboard', msn=msn))
+    repairs = data_manager.get_all_repairs(msn)
+    closed_oil = [r for r in repairs if r.get('OIL_Status') == 'Closed']
+    return render_template('signed_oil_report.html', msn=msn, closed_oil=closed_oil, role=session['role'])
+
+# --- API OIL ---
 @app.route('/api/oil/response/<msn>/<repair_id>', methods=['POST'])
 def oil_operator_response(msn, repair_id):
     if session.get('role') != 'operator':
         return redirect(url_for('oil_control', msn=msn))
-    
     note = request.form['response_note']
     file = request.files['operator_file']
     if not file or not allowed_file(file.filename):
         return "File required", 400
-    
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"{repair_id}_op_evidence.{ext}"
     path = os.path.join(app.config['UPLOAD_FOLDER'], msn, filename)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     file.save(path)
-    
     update = {
         "Operator_Response_Note": note,
         "Doc_Operator_File": filename,
@@ -238,11 +253,9 @@ def oil_operator_response(msn, repair_id):
 def oil_close(msn, repair_id):
     if session.get('role') not in ['auditor', 'lessor']:
         return "Forbidden", 403
-    
     status = request.form['final_status']
     note = request.form['close_note']
     signed_by = request.form['signed_by']
-    
     update = {
         "OIL_Status": status,
         "OIL_Closure_Note": note if status == 'Closed' else '',
