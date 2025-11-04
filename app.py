@@ -1,4 +1,4 @@
-# app.py - FINAL REENGINEERED VERSION (IATA-STYLE)
+# app.py - FINAL VERSION: CONSISTENT DASHBOARD + CONTROLLED OIL CLOSURE
 from flask import Flask, render_template, jsonify, request, redirect, url_for, make_response, session, send_from_directory
 import data_manager
 import audit_log
@@ -16,7 +16,6 @@ app = Flask(__name__)
 app.secret_key = 'structural_repair_2025_secure_key'
 
 # --- JINJA FILTER: STRPTIME ---
-from datetime import datetime
 @app.template_filter('strptime')
 def _jinja2_filter_strptime(date_string, fmt='%Y-%m-%d'):
     try:
@@ -171,6 +170,7 @@ def role_select_web(msn):
             return redirect(url_for('dashboard', msn=msn))
     return render_template('role_select.html', msn=msn)
 
+# --- DASHBOARD: DATOS CONSISTENTES PARA TODOS LOS ROLES ---
 @app.route('/dashboard/<msn>')
 def dashboard(msn):
     if 'role' not in session or session.get('msn') != msn:
@@ -181,15 +181,22 @@ def dashboard(msn):
         return redirect(url_for('index'))
     
     repairs = data_manager.get_all_repairs(msn)
+
+    total_repairs = len(repairs)
     oil_open = len([r for r in repairs if r.get('OIL_Status') == 'Open'])
     oil_closed = len([r for r in repairs if r.get('OIL_Status') == 'Closed'])
     non_conforming = len([r for r in repairs if r.get('Audit_Physical_Status') == 'Non-Conforming'])
-    
+
     return render_template(
         'dashboard.html',
-        msn=msn, details=details, repairs=repairs,
+        msn=msn,
+        details=details,
+        repairs=repairs,
         role=session['role'],
-        oil_open=oil_open, oil_closed=oil_closed, non_conforming=non_conforming
+        total_repairs=total_repairs,
+        oil_open=oil_open,
+        oil_closed=oil_closed,
+        non_conforming=non_conforming
     )
 
 @app.route('/edit/<msn>/<repair_id>', methods=['GET'])
@@ -205,7 +212,7 @@ def view_repairs_web(msn):
     return render_template('view_repairs.html', msn=msn, repairs=repairs)
 
 # =============================
-# OIL CONTROL (REENGINEERED)
+# OIL CONTROL (NO AUTO-CREATION)
 # =============================
 
 @app.route('/oil/<msn>')
@@ -214,8 +221,8 @@ def oil_control(msn):
         return redirect(url_for('role_select_web', msn=msn))
     
     repairs = data_manager.get_all_repairs(msn)
-    oil_items = [r for r in repairs if r.get('OIL_ID')]  # Solo con OIL_ID
-    all_repairs = [r for r in repairs if not r.get('OIL_ID')]  # Sin OIL
+    oil_items = [r for r in repairs if r.get('OIL_ID')]
+    all_repairs = [r for r in repairs if not r.get('OIL_ID')]
     today = datetime.now().date()
     
     return render_template(
@@ -233,16 +240,15 @@ def oil_add_discrepancy(msn):
         return "Forbidden: Only Auditor or Lessor", 403
     
     repair_id = request.form['repair_id']
-    oil_type = request.form['oil_type']  # "Physical" or "Documentary"
+    oil_type = request.form['oil_type']
     audit_note = request.form['audit_note']
-    file = request.files.get('audit_file')  # OPCIONAL
+    file = request.files.get('audit_file')
 
     repair = data_manager.get_repair_record_by_id(msn, repair_id)
     if not repair or repair.get('OIL_ID'):
         return "Repair already has OIL", 400
 
     data_manager.create_oil_item(msn, repair_id, oil_type)
-
     update = {"OIL_Audit_Note": audit_note}
     if file and allowed_file(file.filename):
         ext = file.filename.rsplit('.', 1)[1].lower()
@@ -279,13 +285,20 @@ def oil_operator_response(msn, repair_id):
     audit_log.log_event(msn, repair_id, "OIL_RESPONSE", session, update)
     return redirect(url_for('oil_control', msn=msn))
 
+# --- CERRAR OIL: SOLO AUDITOR/LESSOR Y EN "In Progress" ---
 @app.route('/api/oil/close/<msn>/<repair_id>', methods=['POST'])
 def oil_close(msn, repair_id):
     if session.get('role') not in ['auditor', 'lessor']:
         return "Forbidden: Only Auditor or Lessor can close", 403
+
+    repair = data_manager.get_repair_record_by_id(msn, repair_id)
+    if not repair or repair.get('OIL_Status') != 'In Progress':
+        return "Cannot close: Item not in progress", 400
+
     status = request.form['final_status']
     note = request.form['close_note']
     signed_by = request.form['signed_by']
+
     update = {
         "OIL_Status": status,
         "OIL_Closure_Note": note if status == 'Closed' else '',
@@ -294,12 +307,13 @@ def oil_close(msn, repair_id):
         "OIL_Signed_Date": datetime.now().strftime('%Y-%m-%d %H:%M'),
         "OIL_Closure_Date": datetime.now().strftime('%Y-%m-%d')
     }
+
     data_manager.update_repair_record(msn, repair_id, update)
     audit_log.log_event(msn, repair_id, f"OIL_{status.upper()}", session, update)
     return redirect(url_for('oil_control', msn=msn))
 
 # =============================
-# PHYSICAL AUDIT (REENGINEERED)
+# PHYSICAL AUDIT
 # =============================
 
 @app.route('/physical_audit/<msn>')
@@ -324,7 +338,7 @@ def physical_report(msn):
     
     repair_id = request.form['repair_id']
     audit_note = request.form['audit_note']
-    photo = request.files.get('photo')  # OPCIONAL
+    photo = request.files.get('photo')
 
     update = {
         "Audit_Physical_Status": "Non-Conforming",
