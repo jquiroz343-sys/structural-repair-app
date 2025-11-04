@@ -1,96 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Physical Audit - {{ msn }}</title>
-    <style>
-        body { font-family: Arial; margin: 0; background: #f4f6f9; }
-        .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
-        .container { padding: 20px; max-width: 1000px; margin: auto; }
-        .audit-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .audit-card.non-conforming { border-left: 5px solid #d32f2f; }
-        .audit-card.conforming { border-left: 5px solid #388e3c; }
-        .section { margin: 15px 0; padding: 12px; background: #f9f9f9; border-radius: 5px; }
-        textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; min-height: 80px; }
-        input[type="file"] { margin: 10px 0; }
-        button { background: #1976d2; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-        button:hover { background: #1565c0; }
-        button.close { background: #388e3c; }
-        button.close:hover { background: #2e7d32; }
-        .back { display: inline-block; margin: 20px 0; color: #1e40af; text-decoration: none; font-weight: bold; }
-        .photo { max-width: 300px; border-radius: 5px; margin: 10px 0; }
-        .ndt { color: #f57c00; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Physical Audit - {{ msn }}</h1>
-        <p>Role: <strong>{{ role|title }}</strong></p>
-    </div>
-    <div class="container">
-        <a href="/dashboard/{{ msn }}" class="back">Back to Dashboard</a>
+<html><head><title>Physical Audit - {{ msn }}</title>
+<style>
+    body { font-family: Arial; margin: 0; background: #f4f6f9; position: relative; }
+    .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
+    .container { padding: 20px; max-width: 1000px; margin: auto; }
+    .audit-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .audit-card.non-conforming { border-left: 5px solid #d32f2f; }
+    .photo { max-width: 300px; border-radius: 5px; }
+</style></head><body>
 
-        <h2>Physical Inspection Items</h2>
+<div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 100;">
+    <a href="/dashboard/{{ msn }}" style="background: #1976d2; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">Back to Dashboard</a>
+    <a href="/logout/{{ msn }}" style="background: #d32f2f; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">Exit Role</a>
+</div>
 
-        {% if physical_items %}
-            {% for r in physical_items %}
-            <div class="audit-card {{ 'non-conforming' if r.Audit_Physical_Status == 'Non-Conforming' else 'conforming' }}">
-                <h3>Repair ID: {{ r.Repair_ID }} | ATA: {{ r.ATA_Chapter }}</h3>
-                <p><strong>NDT Performed:</strong> <span class="ndt">{{ r.NDT_Required_Performed or 'N/A' }}</span></p>
-                <p><strong>Current Status:</strong> 
-                    <span style="color: {% if r.Audit_Physical_Status == 'Non-Conforming' %}#d32f2f{% else %}#388e3c{% endif %}; font-weight: bold;">
-                        {{ r.Audit_Physical_Status or 'Pending' }}
-                    </span>
-                </p>
-
-                <div class="section">
-                    <strong>Physical Measurements:</strong><br>
-                    Length/Width: {{ r.Dim_Length_Width or 'N/A' }} mm | 
-                    Depth: {{ r.Dim_Depth or 'N/A' }} mm | 
-                    Remaining Thickness: {{ r.Dim_Remaining_Thk or 'N/A' }} mm
-                </div>
-
-                {% if r.Doc_Photo_Pre %}
-                <div class="section">
-                    <strong>Pre-Repair Photo:</strong><br>
-                    <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Pre }}" class="photo" alt="Pre-Repair">
-                </div>
-                {% endif %}
-                {% if r.Doc_Photo_Post %}
-                <div class="section">
-                    <strong>Post-Repair Photo:</strong><br>
-                    <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" class="photo" alt="Post-Repair">
-                </div>
-                {% endif %}
-
-                {% if r.Audit_Physical_Status != 'Conforming' %}
-                <form action="/api/physical/audit/{{ msn }}/{{ r.Repair_ID }}" method="POST" enctype="multipart/form-data">
-                    <label><strong>Your Physical Observation (required):</strong></label>
-                    <textarea name="physical_note" placeholder="Describe verification, reference SRM/NDT..." required></textarea>
-
-                    <label><strong>Upload Inspection Photo (required):</strong></label>
-                    <input type="file" name="inspection_photo" accept=".jpg,.jpeg,.png" required>
-
-                    <label><strong>NDT Method Used:</strong></label>
-                    <input type="text" name="ndt_method" placeholder="e.g., Ultrasonic" value="{{ r.NDT_Required_Performed or '' }}">
-
-                    <div>
-                        <button type="submit" name="action" value="non_conforming">Mark Non-Conforming (Generate OIL)</button>
-                        <button type="submit" name="action" value="conforming" class="close">Mark Conforming</button>
-                    </div>
-                </form>
-                {% else %}
-                <div style="color: #388e3c; font-weight: bold;">
-                    Physical audit closed - Compliant.
-                </div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        {% else %}
-        <div style="text-align: center; color: #388e3c; font-weight: bold; font-size: 18px; padding: 40px;">
-            No physical audit items pending.
-        </div>
+<div class="header"><h1>Physical Audit - {{ msn }}</h1><p>Role: {{ role|title }}</p></div>
+<div class="container">
+    {% for r in physical_items %}
+    <div class="audit-card {{ 'non-conforming' if r.Audit_Physical_Status == 'Non-Conforming' else '' }}">
+        <h3>{{ r.Repair_ID }} | {{ r.ATA_Chapter }}</h3>
+        <p><strong>Status:</strong> {{ r.Audit_Physical_Status }}</p>
+        {% if r.Doc_Photo_Post %}
+        <img src="/api/documents/download/{{ msn }}/{{ r.Doc_Photo_Post }}" class="photo">
         {% endif %}
     </div>
-</body>
-</html>
+    {% endfor %}
+</div>
+</body></html>
