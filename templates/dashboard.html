@@ -5,16 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - {{ msn }}</title>
     <style>
-        /* === RESET & TYPOGRAPHY === */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
             color: #333; 
             line-height: 1.6;
+            position: relative;
         }
-
-        /* === HEADER === */
         .header {
             background: linear-gradient(90deg, #1e40af, #1e3a8a);
             color: white;
@@ -22,167 +20,67 @@
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-        .header h1 {
-            font-size: 2.2rem;
-            margin-bottom: 8px;
-            font-weight: 700;
-        }
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.95;
-        }
-
-        /* === CONTAINER === */
-        .container {
-            max-width: 1100px;
-            margin: 30px auto;
-            padding: 0 20px;
-        }
-
-        /* === STATS GRID === */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.12);
-        }
-        .stat-card h3 {
-            color: #1e40af;
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-        .stat-card p {
-            font-size: 2.2rem;
-            font-weight: 800;
-            margin: 0;
-        }
+        .header h1 { font-size: 2.2rem; margin-bottom: 8px; font-weight: 700; }
+        .header p { font-size: 1.1rem; opacity: 0.95; }
+        .container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 25px; border-radius: 12px; text-align: center; box-shadow: 0 6px 16px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 12px 24px rgba(0,0,0,0.12); }
+        .stat-card h3 { color: #1e40af; font-size: 1.1rem; margin-bottom: 10px; font-weight: 600; }
+        .stat-card p { font-size: 2.2rem; font-weight: 800; margin: 0; }
         .stat-open { color: #d32f2f; }
         .stat-closed { color: #388e3c; }
         .stat-nonconf { color: #f57c00; }
-
-        /* === MENU BUTTONS === */
-        .menu {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 18px;
-            margin-top: 10px;
-        }
-        .menu-btn {
-            display: block;
-            padding: 18px 20px;
-            text-align: center;
-            text-decoration: none;
-            color: white;
-            font-weight: 700;
-            font-size: 1.05rem;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-        .menu-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 18px rgba(0,0,0,0.15);
-        }
-
-        /* Button Colors */
+        .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 10px; }
+        .menu-btn { display: block; padding: 18px 20px; text-align: center; text-decoration: none; color: white; font-weight: 700; font-size: 1.05rem; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .menu-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(0,0,0,0.15); }
         .btn-add { background: linear-gradient(135deg, #1976d2, #1565c0); }
         .btn-view { background: linear-gradient(135deg, #0288d1, #0277bd); }
         .btn-oil { background: linear-gradient(135deg, #d32f2f, #b71c1c); }
         .btn-physical { background: linear-gradient(135deg, #f57c00, #ef6c00); }
         .btn-signed { background: linear-gradient(135deg, #388e3c, #2e7d32); }
         .btn-export { background: linear-gradient(135deg, #7b1fa2, #6a1b9a); }
-
         .btn-add:hover { background: #1565c0; }
         .btn-view:hover { background: #0277bd; }
         .btn-oil:hover { background: #b71c1c; }
         .btn-physical:hover { background: #ef6c00; }
         .btn-signed:hover { background: #2e7d32; }
         .btn-export:hover { background: #6a1b9a; }
-
-        /* === RESPONSIVE === */
-        @media (max-width: 768px) {
-            .header h1 { font-size: 1.8rem; }
-            .stats { grid-template-columns: 1fr 1fr; }
-            .menu { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 768px) { .header h1 { font-size: 1.8rem; } .stats { grid-template-columns: 1fr 1fr; } .menu { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 
-    <!-- HEADER -->
+    <!-- BOTONES EN DASHBOARD -->
+    <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 100;">
+        <a href="/role_select/{{ msn }}" style="background: #d32f2f; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">
+            Exit Role
+        </a>
+    </div>
+
     <div class="header">
         <h1>Structural Repair Log</h1>
         <p>MSN: <strong>{{ msn }}</strong> | Aircraft: <strong>{{ details.Aircraft_Type or 'N/A' }}</strong> | Role: <strong>{{ role|title }}</strong></p>
     </div>
 
     <div class="container">
-
-        <!-- STATISTICS -->
         <div class="stats">
-            <div class="stat-card">
-                <h3>Total Repairs</h3>
-                <p>{{ repairs|length }}</p>
-            </div>
-            <div class="stat-card">
-                <h3>OIL Open</h3>
-                <p class="stat-open">{{ oil_open }}</p>
-            </div>
-            <div class="stat-card">
-                <h3>OIL Closed</h3>
-                <p class="stat-closed">{{ oil_closed }}</p>
-            </div>
-            <div class="stat-card">
-                <h3>Non-Conforming</h3>
-                <p class="stat-nonconf">{{ non_conforming }}</p>
-            </div>
+            <div class="stat-card"><h3>Total Repairs</h3><p>{{ repairs|length }}</p></div>
+            <div class="stat-card"><h3>OIL Open</h3><p class="stat-open">{{ oil_open }}</p></div>
+            <div class="stat-card"><h3>OIL Closed</h3><p class="stat-closed">{{ oil_closed }}</p></div>
+            <div class="stat-card"><h3>Non-Conforming</h3><p class="stat-nonconf">{{ non_conforming }}</p></div>
         </div>
 
-        <!-- MENU BUTTONS -->
         <div class="menu">
-
-            <!-- OPERATOR ONLY -->
             {% if role == 'operator' %}
-            <a href="/edit/{{ msn }}/NEW" class="menu-btn btn-add">
-                Add New Repair
-            </a>
-            <a href="/view/{{ msn }}" class="menu-btn btn-view">
-                View All Repairs
-            </a>
+            <a href="/edit/{{ msn }}/NEW" class="menu-btn btn-add">Add New Repair</a>
+            <a href="/view/{{ msn }}" class="menu-btn btn-view">View All Repairs</a>
             {% endif %}
-
-            <!-- ALL ROLES -->
-            <a href="/oil/{{ msn }}" class="menu-btn btn-oil">
-                Open Items List (OIL)
-            </a>
-
-            <a href="/physical_audit/{{ msn }}" class="menu-btn btn-physical">
-                Physical Audit
-            </a>
-
-            <a href="/signed_oil_report/{{ msn }}" class="menu-btn btn-signed">
-                Signed OIL Report
-            </a>
-
-            <a href="/api/export/all/{{ msn }}" class="menu-btn btn-export">
-                Export All (ZIP)
-            </a>
-
+            <a href="/oil/{{ msn }}" class="menu-btn btn-oil">Open Items List (OIL)</a>
+            <a href="/physical_audit/{{ msn }}" class="menu-btn btn-physical">Physical Audit</a>
+            <a href="/signed_oil_report/{{ msn }}" class="menu-btn btn-signed">Signed OIL Report</a>
+            <a href="/api/export/all/{{ msn }}" class="menu-btn btn-export">Export All (ZIP)</a>
         </div>
-
     </div>
-
 </body>
 </html>
