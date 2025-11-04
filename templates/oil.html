@@ -1,75 +1,60 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>OIL - {{ msn }}</title>
-    <style>
-        body { font-family: Arial; margin: 0; background: #f4f6f9; position: relative; }
-        .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
-        .container { padding: 20px; max-width: 1200px; margin: auto; }
-        .oil-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .status-open { border-left: 6px solid #d32f2f; }
-        .status-progress { border-left: 6px solid #f57c00; }
-        .status-closed { border-left: 6px solid #388e3c; }
-        .priority-high { background: #ffebee; color: #c62828; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .priority-medium { background: #fff3e0; color: #ef6c00; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .priority-low { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        .section { margin: 15px 0; padding: 12px; background: #f9f9f9; border-radius: 5px; }
-        textarea, input, select { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; }
-        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; font-weight: bold; }
-        .btn-progress { background: #f57c00; color: white; }
-        .btn-closed { background: #388e3c; color: white; }
-        .file-link { color: #1976d2; text-decoration: underline; }
-        .overdue { color: #d32f2f; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <!-- BOTONES -->
-    <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 100;">
-        <a href="/dashboard/{{ msn }}" style="background: #1976d2; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">
-            Back to Dashboard
-        </a>
-        <a href="/logout/{{ msn }}" style="background: #d32f2f; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">
-            Exit Role
-        </a>
-    </div>
+<html><head><title>OIL - {{ msn }}</title>
+<style>
+    body { font-family: Arial; margin: 0; background: #f4f6f9; position: relative; }
+    .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
+    .container { padding: 20px; max-width: 1200px; margin: auto; }
+    .oil-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .status-open { border-left: 6px solid #d32f2f; }
+    .status-progress { border-left: 6px solid #f57c00; }
+    .status-closed { border-left: 6px solid #388e3c; }
+    .priority-high { background: #ffebee; color: #c62828; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    .section { margin: 15px 0; padding: 12px; background: #f9f9f9; border-radius: 5px; }
+    textarea, input, select { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; }
+    button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; font-weight: bold; }
+    .btn-progress { background: #f57c00; color: white; }
+    .btn-closed { background: #388e3c; color: white; }
+    .file-link { color: #1976d2; text-decoration: underline; }
+    .overdue { color: #d32f2f; font-weight: bold; }
+</style></head><body>
 
-    <div class="header">
-        <h1>Open Items List (OIL) - {{ msn }}</h1>
-        <p>Role: <strong>{{ role|title }}</strong></p>
-    </div>
-    <div class="container">
-        <h2>OIL Control Center</h2>
-        {% if oil_items %}
-            {% for item in oil_items %}
-            {% set days_left = ((item.OIL_Due_Date|strptime).date() - today).days %}
-            <div class="oil-card status-{{ item.OIL_Status|lower|replace(' ', '') }}">
-                <h3><strong>{{ item.OIL_ID }}</strong> | {{ item.Repair_ID }}</h3>
-                <p><strong>Priority:</strong> <span class="priority-{{ item.OIL_Priority|lower }}">{{ item.OIL_Priority }}</span> | <strong>Due:</strong> {{ item.OIL_Due_Date }} ({{ days_left }} days)</p>
-                <div class="section"><strong>Auditor Finding:</strong><br>{{ item.OIL_Audit_Note or 'N/A' }}</div>
-                {% if item.Operator_Response_Note %}
-                <div class="section" style="background: #e8f5e9;"><strong>Operator Response ({{ item.Response_Date }}):</strong><br>{{ item.Operator_Response_Note }}</div>
-                {% endif %}
-                {% if role == 'operator' and item.OIL_Status in ['Open', 'In Progress'] and not item.Doc_Operator_File %}
-                <form action="/api/oil/response/{{ msn }}/{{ item.Repair_ID }}" method="POST" enctype="multipart/form-data">
-                    <textarea name="response_note" required placeholder="Corrective action..."></textarea>
-                    <input type="file" name="operator_file" required>
-                    <button type="submit" class="btn-progress">Submit → In Progress</button>
-                </form>
-                {% endif %}
-                {% if role in ['auditor', 'lessor'] and item.OIL_Status == 'In Progress' %}
-                <form action="/api/oil/close/{{ msn }}/{{ item.Repair_ID }}" method="POST">
-                    <select name="final_status" required><option value="Closed">Closed</option><option value="Compensation">Compensation</option></select>
-                    <textarea name="close_note" required></textarea>
-                    <input type="text" name="signed_by" placeholder="Your Name" required>
-                    <button type="submit" class="btn-closed">Close</button>
-                </form>
-                {% endif %}
-            </div>
-            {% endfor %}
-        {% else %}
-        <p style="text-align: center; color: #388e3c; font-weight: bold; padding: 40px;">No open items.</p>
-        {% endif %}
-    </div>
-</body>
-</html>
+<div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 100;">
+    <a href="/dashboard/{{ msn }}" style="background: #1976d2; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">Back to Dashboard</a>
+    <a href="/logout/{{ msn }}" style="background: #d32f2f; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">Exit Role</a>
+</div>
+
+<div class="header"><h1>Open Items List (OIL) - {{ msn }}</h1><p>Role: {{ role|title }}</p></div>
+<div class="container">
+    <h2>OIL Control Center</h2>
+    {% if oil_items %}
+        {% for item in oil_items %}
+        {% set days_left = ((item.OIL_Due_Date|strptime).date() - today).days %}
+        <div class="oil-card status-{{ item.OIL_Status|lower|replace(' ', '') }}">
+            <h3><strong>{{ item.OIL_ID }}</strong> | {{ item.Repair_ID }}</h3>
+            <p><strong>Priority:</strong> <span class="priority-{{ item.OIL_Priority|lower }}">{{ item.OIL_Priority }}</span> | <strong>Due:</strong> {{ item.OIL_Due_Date }} ({{ days_left }} days)</p>
+            <div class="section"><strong>Auditor Finding:</strong><br>{{ item.OIL_Audit_Note or 'N/A' }}</div>
+            {% if item.Operator_Response_Note %}
+            <div class="section" style="background: #e8f5e9;"><strong>Operator Response ({{ item.Response_Date }}):</strong><br>{{ item.Operator_Response_Note }}</div>
+            {% endif %}
+            {% if role == 'operator' and item.OIL_Status in ['Open', 'In Progress'] and not item.Doc_Operator_File %}
+            <form action="/api/oil/response/{{ msn }}/{{ item.Repair_ID }}" method="POST" enctype="multipart/form-data">
+                <textarea name="response_note" required placeholder="Corrective action..."></textarea>
+                <input type="file" name="operator_file" required>
+                <button type="submit" class="btn-progress">Submit → In Progress</button>
+            </form>
+            {% endif %}
+            {% if role in ['auditor', 'lessor'] and item.OIL_Status == 'In Progress' %}
+            <form action="/api/oil/close/{{ msn }}/{{ item.Repair_ID }}" method="POST">
+                <select name="final_status" required><option value="Closed">Closed</option><option value="Compensation">Compensation</option></select>
+                <textarea name="close_note" required></textarea>
+                <input type="text" name="signed_by" placeholder="Your Name" required>
+                <button type="submit" class="btn-closed">Close</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+    <p style="text-align: center; color: #388e3c; font-weight: bold; padding: 40px;">No open items.</p>
+    {% endif %}
+</div>
+</body></html>
