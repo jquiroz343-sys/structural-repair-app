@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OIL Control - {{ msn }}</title>
+    <title>Open Items List (OIL) - {{ msn }}</title>
     <style>
-        body { font-family: Arial; margin: 0; background: #f4f6f9; }
+        body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; }
         .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
         .container { padding: 20px; max-width: 1200px; margin: auto; }
         .oil-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -36,72 +36,96 @@
 
         <h2>OIL Control Center</h2>
 
-        {% for item in oil_items %}
-        {% set days_left = ((item.OIL_Due_Date | strptime).date() - today).days %}
-        <div class="oil-card status-{{ item.OIL_Status|lower|replace(' ', '') }}">
-            <h3>
-                <strong>{{ item.OIL_ID }}</strong> | Repair ID: {{ item.Repair_ID }} | ATA: {{ item.ATA_Chapter }}
-                <span style="float: right;">
-                    {{ item.OIL_Status }}
-                    {% if days_left < 0 %}<span class="overdue"> (Overdue)</span>{% endif %}
-                </span>
-            </h3>
-            <p>
-                <strong>Priority:</strong> <span class="priority-{{ item.OIL_Priority|lower }}">{{ item.OIL_Priority }}</span> |
-                <strong>Due:</strong> {{ item.OIL_Due_Date }} ({{ days_left }} days)
-            </p>
-            <p><strong>Type:</strong> {{ item.OIL_Type }} | <strong>Ref:</strong> {{ item.OIL_Reference or 'N/A' }}</p>
+        {% if oil_items %}
+            {% for item in oil_items %}
+            {% set days_left = ((item.OIL_Due_Date|strptime).date() - today).days %}
+            <div class="oil-card status-{{ item.OIL_Status|lower|replace(' ', '') }}">
+                <h3>
+                    <strong>{{ item.OIL_ID }}</strong> | Repair ID: {{ item.Repair_ID }} | ATA: {{ item.ATA_Chapter }}
+                    <span style="float: right; font-weight: bold;">
+                        {{ item.OIL_Status }}
+                        {% if days_left < 0 %}<span class="overdue"> (Overdue)</span>{% endif %}
+                    </span>
+                </h3>
 
-            <div class="section">
-                <strong>Auditor Finding:</strong><br>
-                {{ item.OIL_Audit_Note or 'No note.' }}
-                {% if item.Doc_Audit_File %}
-                <br><a href="/api/documents/download/{{ msn }}/{{ item.Doc_Audit_File }}" class="file-link" target="_blank">View File</a>
+                <p>
+                    <strong>Priority:</strong> <span class="priority-{{ item.OIL_Priority|lower }}">{{ item.OIL_Priority }}</span> |
+                    <strong>Due:</strong> {{ item.OIL_Due_Date }} ({{ days_left }} days left)
+                </p>
+                <p><strong>Type:</strong> {{ item.OIL_Type }} | <strong>Category:</strong> {{ item.OIL_Category or 'N/A' }} | <strong>Ref:</strong> {{ item.OIL_Reference or 'N/A' }}</p>
+
+                <!-- AUDITOR FINDING -->
+                <div class="section">
+                    <strong>Auditor Finding ({{ item.Audit_Date or 'N/A' }}):</strong><br>
+                    {{ item.OIL_Audit_Note or 'No note provided.' }}
+                    {% if item.Doc_Audit_File %}
+                    <br><a href="/api/documents/download/{{ msn }}/{{ item.Doc_Audit_File }}" class="file-link" target="_blank">View Audit File</a>
+                    {% endif %}
+                </div>
+
+                <!-- OPERATOR RESPONSE -->
+                {% if item.Operator_Response_Note %}
+                <div class="section" style="background: #e8f5e9;">
+                    <strong>Operator Response ({{ item.Response_Date }}):</strong><br>
+                    {{ item.Operator_Response_Note }}
+                    {% if item.Doc_Operator_File %}
+                    <br><a href="/api/documents/download/{{ msn }}/{{ item.Doc_Operator_File }}" class="file-link" target="_blank">View Operator Evidence</a>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="section" style="background: #fff3e0; color: #e65100;">
+                    <strong>Pending Operator Response</strong>
+                </div>
+                {% endif %}
+
+                <!-- OPERATOR ACTION -->
+                {% if role == 'operator' and item.OIL_Status in ['Open', 'In Progress'] and not item.Doc_Operator_File %}
+                <form action="/api/oil/response/{{ msn }}/{{ item.Repair_ID }}" method="POST" enctype="multipart/form-data">
+                    <label><strong>Your Response (required):</strong></label>
+                    <textarea name="response_note" placeholder="Describe corrective action..." required></textarea>
+
+                    <label><strong>Upload Evidence (required):</strong></label>
+                    <input type="file" name="operator_file" accept=".pdf,.jpg,.png,.docx" required>
+
+                    <button type="submit" class="btn-progress">Submit Response → In Progress</button>
+                </form>
+                {% endif %}
+
+                <!-- AUDITOR CLOSE -->
+                {% if role in ['auditor', 'lessor'] and item.OIL_Status == 'In Progress' and item.Doc_Operator_File %}
+                <form action="/api/oil/close/{{ msn }}/{{ item.Repair_ID }}" method="POST">
+                    <label><strong>Final Decision:</strong></label>
+                    <select name="final_status" required>
+                        <option value="Closed">Closed (Compliant)</option>
+                        <option value="Compensation">Compensation Required</option>
+                    </select>
+
+                    <label><strong>Closure Note (required):</strong></label>
+                    <textarea name="close_note" placeholder="Justify decision..." required></textarea>
+
+                    <label><strong>Your Name (Signature):</strong></label>
+                    <input type="text" name="signed_by" placeholder="Enter your name" required>
+
+                    <button type="submit" class="btn-closed">Close OIL</button>
+                    <button type="submit" class="btn-comp" formaction="/api/oil/comp/{{ msn }}/{{ item.Repair_ID }}">Compensation</button>
+                </form>
+                {% endif %}
+
+                <!-- COMPENSATION NOTE -->
+                {% if item.OIL_Compensation_Note %}
+                <div class="section" style="background: #f3e5f5; color: #7b1fa2;">
+                    <strong>Compensation Note:</strong><br>
+                    {{ item.OIL_Compensation_Note }}<br>
+                    <em>Signed by {{ item.OIL_Signed_By }} on {{ item.OIL_Signed_Date }}</em>
+                </div>
                 {% endif %}
             </div>
-
-            {% if item.Operator_Response_Note %}
-            <div class="section" style="background: #e8f5e9;">
-                <strong>Operator Response ({{ item.Response_Date }}):</strong><br>
-                {{ item.Operator_Response_Note }}
-                {% if item.Doc_Operator_File %}
-                <br><a href="/api/documents/download/{{ msn }}/{{ item.Doc_Operator_File }}" class="file-link" target="_blank">View Evidence</a>
-                {% endif %}
-            </div>
-            {% else %}
-            <div class="section" style="background: #fff3e0; color: #e65100;">
-                <strong>Pending Response</strong>
-            </div>
-            {% endif %}
-
-            {% if role == 'operator' and item.OIL_Status in ['Open', 'In Progress'] and not item.Doc_Operator_File %}
-            <form action="/api/oil/response/{{ msn }}/{{ item.Repair_ID }}" method="POST" enctype="multipart/form-data">
-                <label><strong>Response:</strong></label>
-                <textarea name="response_note" required></textarea>
-                <label><strong>Evidence:</strong></label>
-                <input type="file" name="operator_file" required>
-                <button type="submit" class="btn-progress">Submit</button>
-            </form>
-            {% endif %}
-
-            {% if role in ['auditor', 'lessor'] and item.OIL_Status == 'In Progress' %}
-            <form action="/api/oil/close/{{ msn }}/{{ item.Repair_ID }}" method="POST">
-                <select name="final_status" required>
-                    <option value="Closed">Closed</option>
-                    <option value="Compensation">Compensation</option>
-                </select>
-                <textarea name="close_note" required></textarea>
-                <input type="text" name="signed_by" placeholder="Your Name" required>
-                <button type="submit" class="btn-closed">Close</button>
-                <button type="submit" class="btn-comp" formaction="/api/oil/comp/{{ msn }}/{{ item.Repair_ID }}">Compensation</button>
-            </form>
-            {% endif %}
-        </div>
+            {% endfor %}
         {% else %}
-        <p style="text-align: center; color: #388e3c; font-weight: bold; padding: 40px;">
-            No open items.
-        </p>
-        {% endfor %}
+        <div style="text-align: center; color: #388e3c; font-weight: bold; font-size: 18px; padding: 40px;">
+            No open items. All repairs are compliant with IATA standards!
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>
