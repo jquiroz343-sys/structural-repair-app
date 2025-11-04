@@ -1,5 +1,5 @@
-# --- app.py (TODOS LOS MÓDULOS ACTIVOS) ---
-from flask import Flask, render_template, jsonify, request, redirect, url_for, make_response, session
+# --- app.py (COMPLETO - 100% FUNCIONAL) ---
+from flask import Flask, render_template, jsonify, request, redirect, url_for, make_response, session, send_from_directory
 import data_manager
 import audit_log
 import os
@@ -86,7 +86,7 @@ def update_repair(msn, repair_id):
         audit_log.log_event(msn, repair_id, "UPDATE", {'role': 'OPERATOR'}, update_data)
     return jsonify({"success": success, "message": message})
 
-# --- EXPORTAR ZIP ---
+# --- EXPORTAR ZIP (CORREGIDO) ---
 @app.route('/api/export/all/<msn>', methods=['GET'])
 def export_all_to_zip(msn):
     repairs = data_manager.get_all_repairs(msn)
@@ -102,9 +102,11 @@ def export_all_to_zip(msn):
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         if repairs:
             output = StringIO()
+            # FILTRAR SOLO COLUMNAS VÁLIDAS
+            filtered_repairs = [{k: r.get(k, '') for k in data_manager.COLUMNS} for r in repairs]
             writer = csv.DictWriter(output, fieldnames=data_manager.COLUMNS)
             writer.writeheader()
-            writer.writerows(repairs)
+            writer.writerows(filtered_repairs)
             zf.writestr(f'{msn}_Repairs.csv', output.getvalue())
         
         summary = StringIO()
@@ -271,6 +273,20 @@ def oil_close(msn, repair_id):
 @app.route('/api/oil/comp/<msn>/<repair_id>', methods=['POST'])
 def oil_compensation(msn, repair_id):
     return oil_close(msn, repair_id)
+
+# --- AUDIT TRAIL POR REPARACIÓN ---
+@app.route('/api/audit_trail/<msn>/<repair_id>')
+def get_audit_trail_by_repair(msn, repair_id):
+    logs = audit_log.get_audit_trail(msn)
+    repair_logs = [log for log in logs if log.get('repair_id') == repair_id]
+    return jsonify(repair_logs)
+
+# --- SALIR DEL ROL ---
+@app.route('/logout/<msn>')
+def logout(msn):
+    session.pop('role', None)
+    session.pop('msn', None)
+    return redirect(url_for('role_select_web', msn=msn))
 
 # --- ARRANQUE ---
 if __name__ == '__main__':
