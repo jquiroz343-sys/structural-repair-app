@@ -15,6 +15,7 @@
         .section { margin: 15px 0; padding: 12px; background: #f9f9f9; border-radius: 5px; }
         textarea, input, select { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; }
         button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; font-weight: bold; }
+        .btn-audit { background: #d32f2f; color: white; }
         .btn-progress { background: #f57c00; color: white; }
         .btn-closed { background: #388e3c; color: white; }
         .file-link { color: #1976d2; text-decoration: underline; }
@@ -22,6 +23,7 @@
     </style>
 </head>
 <body>
+
     <div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 100;">
         <a href="/dashboard/{{ msn }}" style="background: #1976d2; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">Back to Dashboard</a>
         <a href="/logout/{{ msn }}" style="background: #d32f2f; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px;">Exit Role</a>
@@ -31,31 +33,79 @@
         <h1>Open Items List (OIL) - {{ msn }}</h1>
         <p>Role: <strong>{{ role|title }}</strong></p>
     </div>
+
     <div class="container">
         <h2>OIL Control Center</h2>
+
+        <!-- FORMULARIO: CREAR DISCREPANCIA (AUDITOR O LESSOR) -->
+        {% if role in ['auditor', 'lessor'] %}
+        <div class="oil-card" style="border-left: 6px solid #d32f2f;">
+            <h3>Create New Discrepancy</h3>
+            <form action="/api/oil/add/{{ msn }}" method="POST" enctype="multipart/form-data">
+                <select name="repair_id" required>
+                    <option value="">Select Repair</option>
+                    {% for r in all_repairs %}
+                    {% if not r.OIL_ID %}
+                    <option value="{{ r.Repair_ID }}">{{ r.Repair_ID }} - {{ r.ATA_Chapter }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                <select name="oil_type" required>
+                    <option value="">Select Type</option>
+                    <option value="Documental">Documental</option>
+                    <option value="Física">Física</option>
+                </select>
+                <textarea name="audit_note" required placeholder="Describe the finding..."></textarea>
+                <input type="file" name="audit_file" accept=".pdf,.jpg,.png,.docx">
+                <button type="submit" class="btn-audit">Create OIL Item</button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- LISTA DE ITEMS -->
         {% if oil_items %}
             {% for item in oil_items %}
             {% set days_left = ((item.OIL_Due_Date|strptime).date() - today).days %}
             <div class="oil-card status-{{ item.OIL_Status|lower|replace(' ', '') }}">
                 <h3><strong>{{ item.OIL_ID }}</strong> | {{ item.Repair_ID }}</h3>
-                <p><strong>Priority:</strong> <span class="priority-{{ item.OIL_Priority|lower }}">{{ item.OIL_Priority }}</span> | <strong>Due:</strong> {{ item.OIL_Due_Date }} ({{ days_left }} days)</p>
-                <div class="section"><strong>Auditor Finding:</strong><br>{{ item.OIL_Audit_Note or 'N/A' }}</div>
-                {% if item.Operator_Response_Note %}
-                <div class="section" style="background: #e8f5e9;"><strong>Operator Response ({{ item.Response_Date }}):</strong><br>{{ item.Operator_Response_Note }}</div>
+                <p><strong>Priority:</strong> <span class="priority-{{ item.OIL_Priority|lower }}">{{ item.OIL_Priority }}</span> | 
+                   <strong>Due:</strong> {{ item.OIL_Due_Date }} 
+                   {% if days_left < 0 %}<span class="overdue">(Overdue)</span>{% endif %}
+                </p>
+
+                <div class="section"><strong>Finding:</strong><br>{{ item.OIL_Audit_Note }}</div>
+                {% if item.Doc_Audit_File %}
+                <div class="section"><a href="/api/documents/download/{{ msn }}/{{ item.Doc_Audit_File }}" class="file-link" target="_blank">View Evidence</a></div>
                 {% endif %}
+
+                {% if item.Operator_Response_Note %}
+                <div class="section" style="background: #e8f5e9;">
+                    <strong>Operator Response ({{ item.Response_Date }}):</strong><br>{{ item.Operator_Response_Note }}
+                    {% if item.Doc_Operator_File %}
+                    <br><a href="/api/documents/download/{{ msn }}/{{ item.Doc_Operator_File }}" class="file-link" target="_blank">View Evidence</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- OPERATOR: RESPONDER -->
                 {% if role == 'operator' and item.OIL_Status in ['Open', 'In Progress'] and not item.Doc_Operator_File %}
                 <form action="/api/oil/response/{{ msn }}/{{ item.Repair_ID }}" method="POST" enctype="multipart/form-data">
                     <textarea name="response_note" required placeholder="Corrective action..."></textarea>
-                    <input type="file" name="operator_file" required>
-                    <button type="submit" class="btn-progress">Submit → In Progress</button>
+                    <input type="file" name="operator_file" required accept=".pdf,.jpg,.png,.docx">
+                    <button type="submit" class="btn-progress">Submit Response</button>
                 </form>
                 {% endif %}
+
+                <!-- AUDITOR O LESSOR: CERRAR -->
                 {% if role in ['auditor', 'lessor'] and item.OIL_Status == 'In Progress' %}
                 <form action="/api/oil/close/{{ msn }}/{{ item.Repair_ID }}" method="POST">
-                    <select name="final_status" required><option value="Closed">Closed</option><option value="Compensation">Compensation</option></select>
-                    <textarea name="close_note" required></textarea>
+                    <select name="final_status" required>
+                        <option value="Closed">Closed</option>
+                        <option value="Compensation">Compensation</option>
+                    </select>
+                    <textarea name="close_note" required placeholder="Closure note..."></textarea>
                     <input type="text" name="signed_by" placeholder="Your Name" required>
-                    <button type="submit" class="btn-closed">Close</button>
+                    <button type="submit" class="btn-closed">Close Item</button>
                 </form>
                 {% endif %}
             </div>
