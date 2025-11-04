@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Signed OIL Report - {{ msn }}</title>
+    <style>
+        body { font-family: Arial; margin: 0; background: #f4f6f9; }
+        .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
+        .container { padding: 20px; max-width: 1000px; margin: auto; }
+        .report-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #388e3c; }
+        .section { margin: 15px 0; padding: 12px; background: #f9f9f9; border-radius: 5px; }
+        .back { display: inline-block; margin: 20px 0; color: #1e40af; text-decoration: none; font-weight: bold; }
+        .signature { font-style: italic; color: #388e3c; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Signed OIL Report - {{ msn }}</h1>
+        <p>Role: <strong>{{ role|title }}</strong></p>
+    </div>
+    <div class="container">
+        <a href="/dashboard/{{ msn }}" class="back">Back to Dashboard</a>
+
+        <h2>Closed OIL Items (Signed & Approved)</h2>
+
+        {% if closed_oil %}
+            {% for r in closed_oil %}
+            <div class="report-card">
+                <h3>OIL ID: {{ r.OIL_ID }} | Repair ID: {{ r.Repair_ID }} | ATA: {{ r.ATA_Chapter }}</h3>
+                <p><strong>Status:</strong> <span style="color: #388e3c; font-weight: bold;">Closed</span></p>
+
+                <div class="section">
+                    <strong>Closure Note:</strong><br>
+                    {{ r.OIL_Closure_Note or 'No note.' }}
+                </div>
+
+                <div class="section">
+                    <strong>Operator Response:</strong><br>
+                    {{ r.Operator_Response_Note or 'N/A' }}
+                    {% if r.Doc_Operator_File %}
+                    <br><a href="/api/documents/download/{{ msn }}/{{ r.Doc_Operator_File }}" target="_blank" style="color: #1976d2;">View Evidence</a>
+                    {% endif %}
+                </div>
+
+                <div class="signature">
+                    <strong>Signed by:</strong> {{ r.OIL_Signed_By }} on {{ r.OIL_Signed_Date }}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div style="text-align: center; color: #999; font-size: 18px; padding: 40px;">
+            No signed OIL items yet.
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
